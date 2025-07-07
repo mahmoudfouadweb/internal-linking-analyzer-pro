@@ -14,6 +14,44 @@
 
 هذا المشروع هو أداة متطورة لتحليل الروابط الداخلية لمواقع الويب لتحسين محركات البحث (SEO). يساعد محترفي SEO على تحليل وتحسين استراتيجية الروابط الداخلية لمواقعهم.
 
+## هيكل المشروع
+
+المشروع مُدار كـ **Monorepo** باستخدام **PNPM Workspaces**:
+
+```
+internal-linking-analyzer-pro/
+├── ARCHITECTURE.md                    # وثيقة تشرح بنية المشروع
+├── apps/                              # مجلد التطبيقات
+│   ├── backend/                       # تطبيق الواجهة الخلفية
+│   │   ├── README.md                  # وثائق الواجهة الخلفية
+│   │   ├── eslint.config.mjs          # تكوين ESLint الخاص بالباكند
+│   │   ├── nest-cli.json              # ملف تكوين NestJS
+│   │   ├── package.json               # تبعيات الباكند
+│   │   ├── src/                       # مصدر الشيفرة البرمجية للباكند
+│   │   ├── test/                      # ملفات الاختبار
+│   │   ├── tsconfig.build.json        # تكوين TypeScript للبناء
+│   │   └── tsconfig.json              # تكوين TypeScript الرئيسي للباكند
+│   └── frontend/                      # تطبيق الواجهة الأمامية
+│       ├── README.md                  # وثائق الواجهة الأمامية
+│       ├── eslint.config.mjs          # تكوين ESLint الخاص بالفرونت اند
+│       ├── next-env.d.ts              # تعريفات أنواع Next.js
+│       ├── next.config.ts             # تكوين Next.js
+│       ├── package.json               # تبعيات الفرونت اند
+│       ├── postcss.config.mjs         # تكوين PostCSS
+│       ├── public/                    # الملفات العامة
+│       ├── src/                       # مصدر الشيفرة البرمجية للفرونت اند
+│       └── tsconfig.json              # تكوين TypeScript للفرونت اند
+├── package.json                       # ملف التبعيات الرئيسي للمشروع
+├── packages/                          # الحزم المشتركة
+│   ├── config/                        # حزمة التكوينات المشتركة
+│   │   └── eslint-preset.js           # إعدادات ESLint المشتركة
+│   ├── types/                         # الأنواع المشتركة
+│   └── ui/                            # مكونات واجهة المستخدم المشتركة
+├── pnpm-lock.yaml                     # ملف قفل التبعيات
+├── pnpm-workspace.yaml                # تكوين مساحة عمل pnpm
+└── tsconfig.base.json                 # تكوين TypeScript الأساسي للمشروع
+```
+
 ## المميزات الرئيسية
 
 - تحليل شامل لبنية الروابط الداخلية

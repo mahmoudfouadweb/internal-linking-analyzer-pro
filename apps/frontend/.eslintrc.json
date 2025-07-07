@@ -1,0 +1,1 @@
+{ "extends": ["next/core-web-vitals", "@internal-linking-analyzer-pro/config"] }

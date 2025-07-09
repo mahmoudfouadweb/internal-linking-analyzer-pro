@@ -20,7 +20,7 @@ jobs:
           node-version-file: '.nvmrc'
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: false
@@ -57,7 +57,7 @@ jobs:
           node-version-file: '.nvmrc'
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: false
@@ -94,7 +94,7 @@ jobs:
           node-version-file: '.nvmrc'
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: false

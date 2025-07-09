@@ -1,0 +1,22 @@
+# ملفات ومجلدات يتم تجاهلها من قبل ESLint
+
+# مجلدات البناء
+dist/
+build/
+out/
+.next/
+
+# مجلدات التبعيات
+node_modules/
+
+# ملفات الإعدادات
+.eslintrc.js
+.prettierrc
+
+# ملفات أخرى
+*.min.js
+*.d.ts
+
+# مجلدات أخرى
+coverage/
+public/

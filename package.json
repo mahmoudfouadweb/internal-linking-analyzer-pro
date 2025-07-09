@@ -1,20 +1,44 @@
 {
+  "name": "@internal-linking-analyzer-pro/monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@9.5.0",
+  "scripts": {
+    "prepare": "husky",
+    "dev": "turbo run dev",
+    "prebuild": "node ./scripts/handle-build-errors.js",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "npx turbo run clean || echo \"Clean failed but continuing\" && pnpm -r exec rimraf node_modules && rimraf node_modules",
+    "dev:backend": "cross-env NODE_ENV=development pnpm --filter backend run dev",
+    "dev:frontend": "cross-env NODE_ENV=development pnpm --filter frontend run dev",
+    "dev:types": "pnpm --filter @internal-linking-analyzer-pro/types run dev",
+    "validate": "node ./scripts/validate-workspace.js",
+    "check:duplicates": "node ./scripts/check-duplicates.js",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.0.0",
+    "husky": "^9.0.11",
+    "prettier": "^3.2.4",
+    "rimraf": "^5.0.7",
+    "turbo": "^2.5.4",
+    "typescript": "^5.7.3",
+    "@rollup/rollup-win32-x64-msvc": "^4.9.0",
+    "rollup": "^4.9.0"
+  },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
       "prettier --write",
       "eslint --fix"
     ]
-  },
-  "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.35.1",
-    "@typescript-eslint/parser": "^8.35.1",
-    "eslint": "^9.30.1",
-    "eslint-config-prettier": "^10.1.5",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.1.2"
-  },
-  "scripts": {
-    "prepare": "husky",
-    "lint": "pnpm -r run lint"
   }
 }

@@ -1,20 +1,27 @@
 {
   "compilerOptions": {
-    "target": "es2017",
+    "target": "ES2022",
     "module": "commonjs",
-    "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "sourceMap": true,
-    "incremental": true,
+    "lib": ["ES2022"],
+    "allowJs": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "noImplicitThis": true,
-    "noUncheckedIndexedAccess": true
-  }
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": false,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@internal-linking-analyzer-pro/types": ["packages/types/src"],
+      "@internal-linking-analyzer-pro/types/*": ["packages/types/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "**/node_modules", "**/*.spec.ts", "**/*.test.ts"]
 }

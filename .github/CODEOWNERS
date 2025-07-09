@@ -1,0 +1,28 @@
+# هذا الملف يحدد المالكين التلقائيين لأجزاء مختلفة من الكود
+# عند إنشاء طلب سحب، سيتم تعيين المراجعين تلقائيًا بناءً على هذا الملف
+# تعرف على المزيد: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# المالكون الافتراضيون لكل شيء في المستودع
+* @yourusername
+
+# مالكو الواجهة الأمامية
+/apps/frontend/ @frontend-team
+
+# مالكو الواجهة الخلفية
+/apps/backend/ @backend-team
+
+# مالكو الحزم المشتركة
+/packages/ @core-team
+
+# مالكو الأدوات
+/tools/ @devops-team
+
+# مالكو التوثيق
+/docs/ @docs-team
+*.md @docs-team
+
+# مالكو ملفات الإعدادات
+*.json @core-team
+*.yaml @core-team
+*.yml @core-team
+.github/ @devops-team

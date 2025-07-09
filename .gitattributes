@@ -1,0 +1,42 @@
+# تعيين سلوك نهاية السطر
+* text=auto eol=lf
+
+# تعيين الملفات الثنائية
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mov binary
+*.mp4 binary
+*.mp3 binary
+*.flv binary
+*.fla binary
+*.swf binary
+*.gz binary
+*.zip binary
+*.7z binary
+*.ttf binary
+*.eot binary
+*.woff binary
+*.woff2 binary
+*.pyc binary
+*.pdf binary
+
+# تعيين ملفات اللغة
+*.css linguist-vendored=false
+*.scss linguist-vendored=false
+*.js linguist-vendored=false
+*.ts linguist-vendored=false
+*.tsx linguist-vendored=false
+*.jsx linguist-vendored=false
+
+# تعيين ملفات التوثيق
+*.md diff=markdown
+*.mdx diff=markdown
+
+# تعيين ملفات الإعدادات
+*.json linguist-language=JSON
+*.yaml linguist-language=YAML
+*.yml linguist-language=YAML
+*.toml linguist-language=TOML

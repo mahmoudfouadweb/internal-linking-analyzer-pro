@@ -1,0 +1,52 @@
+# وثائق
+*.md
+!README.md
+
+# ملفات النظام
+.DS_Store
+Thumbs.db
+
+# ملفات التطوير
+.git
+.github
+.gitignore
+.editorconfig
+.prettierrc
+.prettierignore
+.eslintrc.js
+.eslintignore
+.vscode
+
+# ملفات البيئة
+.env
+.env.*
+!.env.example
+
+# ملفات الاعتماد
+node_modules
+
+# ملفات البناء
+dist
+build
+.next
+out
+coverage
+
+# ملفات السجل
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ملفات القفل
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# ملفات Docker
+Dockerfile*
+docker-compose*
+
+# ملفات أخرى
+.husky
+.turbo

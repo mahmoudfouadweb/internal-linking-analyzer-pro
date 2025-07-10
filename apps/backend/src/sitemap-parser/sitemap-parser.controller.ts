@@ -1,4 +1,9 @@
-// apps/backend/src/sitemap-parser/sitemap-parser.controller.ts
+/**
+ * @domain SitemapParser
+ * @layer Presentation
+ * @description متحكم تحليل Sitemap في NestJS
+ */
+
 import {
   Controller,
   Post,
@@ -7,31 +12,40 @@ import {
   HttpStatus,
   UsePipes,
   ValidationPipe,
+  Logger,
 } from '@nestjs/common';
-import { SitemapParserService } from './sitemap-parser.service';
-import { IsUrl, IsBoolean, IsOptional } from 'class-validator'; // For validation
-import { Type } from 'class-transformer'; // For nested objects
+import { IsUrl, IsBoolean, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
 
-// Import shared interfaces from the 'packages/types' workspace
+// استيراد خدمات التطبيق
+import { SitemapParserApplicationService } from './application/sitemap-parser.application.service';
+// نحافظ على الاستيراد القديم للتوافق
+import { SitemapParserService } from './sitemap-parser.service';
+
+// استيراد الأنواع المشتركة
 import { ExtractionSettings, SitemapParserResponse } from '@internal-linking-analyzer-pro/types';
 
-// Define the DTO (Data Transfer Object) for the request body
+// تعريف كائنات نقل البيانات (DTOs)
 class ParseSitemapSettingsDto implements ExtractionSettings {
   @IsBoolean()
   @IsOptional()
-  extractTitleH1: boolean = false;
+  extractTitle?: boolean;
 
   @IsBoolean()
   @IsOptional()
-  parseMultimediaSitemaps: boolean = false;
+  extractH1?: boolean;
 
   @IsBoolean()
   @IsOptional()
-  checkCanonical: boolean = false;
+  parseMultimediaSitemaps?: boolean;
 
   @IsBoolean()
   @IsOptional()
-  estimateCompetition: boolean = false;
+  checkCanonicalUrl?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  estimateCompetition?: boolean;
 }
 
 class ParseSitemapDto {
@@ -39,45 +53,56 @@ class ParseSitemapDto {
   baseUrl!: string;
 
   @IsOptional()
-  @Type(() => ParseSitemapSettingsDto) // Ensure nested object is validated
+  @Type(() => ParseSitemapSettingsDto)
   settings?: ParseSitemapSettingsDto;
 }
 
 @Controller('sitemap-parser')
-// Apply ValidationPipe globally or at controller level for DTO validation
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class SitemapParserController {
-  constructor(private readonly sitemapParserService: SitemapParserService) {}
+  private readonly logger = new Logger(SitemapParserController.name);
+
+  constructor(
+    // حقن خدمة التطبيق الجديدة
+    private readonly sitemapParserApplicationService: SitemapParserApplicationService,
+    // نحافظ على الخدمة القديمة للتوافق
+    private readonly sitemapParserService: SitemapParserService
+  ) {}
 
   @Post('parse')
   async parseSitemap(@Body() parseSitemapDto: ParseSitemapDto): Promise<SitemapParserResponse> {
     try {
       const { baseUrl, settings } = parseSitemapDto;
-      // Provide default settings if not sent from frontend
+      // توفير إعدادات افتراضية إذا لم يتم إرسالها من الواجهة الأمامية
       const effectiveSettings: ExtractionSettings = {
-        extractTitleH1: settings?.extractTitleH1 ?? false,
+        extractTitle: settings?.extractTitle ?? false,
+        extractH1: settings?.extractH1 ?? false,
         parseMultimediaSitemaps: settings?.parseMultimediaSitemaps ?? false,
-        checkCanonical: settings?.checkCanonical ?? false,
+        checkCanonicalUrl: settings?.checkCanonicalUrl ?? false,
         estimateCompetition: settings?.estimateCompetition ?? false,
       };
 
-      const result = await this.sitemapParserService.parseWebsiteSitemaps(
+      this.logger.log(`Received request to parse sitemap for: ${baseUrl}`);
+
+      // استخدام خدمة التطبيق الجديدة
+      const result = await this.sitemapParserApplicationService.parseWebsiteSitemaps(
         baseUrl,
         effectiveSettings,
       );
+
       return result;
     } catch (error: unknown) {
-      // Fixed: 'error' is of type 'unknown'
-      // Log the error for debugging
-      console.error('Error in SitemapParserController:', error);
-      // Return appropriate HTTP status codes based on error type
+      this.logger.error(`Error parsing sitemap: ${error instanceof Error ? error.message : String(error)}`);
+
+      // إعادة رمي استثناءات HTTP كما هي
       if (error instanceof HttpException) {
         throw error;
       }
-      // For any other unexpected errors, return InternalServerError
+
+      // بالنسبة لأي أخطاء غير متوقعة أخرى، إرجاع خطأ خادم داخلي
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new HttpException(
-        errorMessage || 'An unexpected error occurred during sitemap parsing.',
+        errorMessage || 'حدث خطأ غير متوقع أثناء تحليل sitemap.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

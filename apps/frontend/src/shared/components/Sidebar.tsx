@@ -22,13 +22,15 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-gray-800 text-white p-4 space-y-2">
-      <h1 className="text-2xl font-bold mb-4">SEO Pro</h1>
+    <aside className="w-64 bg-sidebar text-sidebar-foreground p-4 space-y-2 border-r border-sidebar-border">
+      <h1 className="text-2xl font-bold mb-4 text-sidebar-primary">SEO Pro</h1>
       <nav>
         <ul>
           {navLinks.map((link) => (
             <li key={link.href}>
-              <Link href={link.href} className={`block p-2 rounded-md ${pathname === link.href ? 'bg-gray-700' : 'hover:bg-gray-700'}`}>
+              <Link
+                href={link.href}
+                className={`block p-2 rounded-md transition-colors ${pathname === link.href ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}`}>
                 {link.label}
               </Link>
             </li>

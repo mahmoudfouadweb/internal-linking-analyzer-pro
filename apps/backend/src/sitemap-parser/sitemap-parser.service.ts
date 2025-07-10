@@ -7,7 +7,7 @@
  * @author Gemini
  * @created 2025-07-08
  * @lastModifiedBy Gemini
- * @lastModified 2025-07-08
+ * @lastModified 2025-07-09
  *
  * @architecture-compliance
  * - Follows NestJS service pattern with dependency injection
@@ -16,13 +16,8 @@
  * - Supports advanced extraction settings for flexible functionality
  */
 
-// apps/backend/src/sitemap-parser/sitemap-parser.service.ts
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { promisify } from 'util';
+import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { parseStringPromise } from 'xml2js';
 import { lastValueFrom } from 'rxjs';
@@ -34,104 +29,74 @@ import {
   SitemapInfo,
   ParsedPageData,
   SitemapParserResponse,
-  ParsedUrl,
-} from '@internal-linking-analyzer-pro/types/sitemap';
+  SitemapType,
+} from '@internal-linking-analyzer-pro/types';
 
-/**
- * @class SitemapParserService
- * @description Main service class responsible for sitemap discovery, parsing, and content extraction.
- *
- * Key Features:
- * - Intelligent sitemap discovery via robots.txt
- * - Fallback to common sitemap paths
- * - Support for sitemap index files (recursive parsing)
- * - Content extraction (title, H1, canonical URLs)
- * - Competition estimation simulation
- * - Comprehensive error handling and logging
- *
- * @injectable NestJS service with HttpService dependency
- */
 @Injectable()
+/**
+ * Service responsible for parsing sitemaps from a given URL.
+ * It handles fetching the sitemap, detecting its type (XML, TXT, or a sitemap index),
+ * and extracting page data based on provided settings.
+ */
 export class SitemapParserService {
-  /** Logger instance for tracking service operations and debugging */
   private readonly logger = new Logger(SitemapParserService.name);
 
-  /**
-   * Common sitemap file paths to check when robots.txt discovery fails
-   * Ordered by likelihood of existence and importance
-   */
   private readonly commonSitemapPaths = [
-    '/sitemap.xml', // Most common standard sitemap
-    '/sitemap_index.xml', // Common sitemap index file
-    '/wp-sitemap.xml', // WordPress default sitemap
-    '/sitemap.xml.gz', // Compressed sitemap
-    '/sitemap_index.xml.gz', // Compressed sitemap index
-    '/sitemap.php', // Dynamic PHP-generated sitemap
-    '/sitemap.txt', // Plain text sitemap format
+    '/sitemap.xml',
+    '/sitemap_index.xml',
+    '/wp-sitemap.xml',
+    '/sitemap.xml.gz',
+    '/sitemap_index.xml.gz',
+    '/sitemap.php',
+    '/sitemap.txt',
+    '/post-sitemap.xml',
+    '/page-sitemap.xml',
+    '/category-sitemap.xml',
+    '/sitemap-index.xml',
+    '/sitemap/index.xml',
+    '/sitemap/sitemap.xml',
   ];
 
-  /**
-   * @constructor
-   * @param httpService - NestJS HTTP service for making external requests
-   */
   constructor(private readonly httpService: HttpService) {}
 
-  /**
-   * @method parseWebsiteSitemaps
-   * @description Main entry point for sitemap discovery and parsing. Implements intelligent
-   * discovery strategy: robots.txt first, then fallback to common paths.
-   *
-   * @param baseUrl - The website URL to analyze (must include protocol)
-   * @param settings - Configuration object for extraction features
-   * @returns Promise<SitemapParserResponse> - Parsed URLs and sitemap information
-   *
-   * @throws BadRequestException - For invalid URLs or when no sitemaps found
-   * @throws InternalServerErrorException - For unexpected parsing errors
-   *
-   * @example
-   * const result = await service.parseWebsiteSitemaps(
-   *   'https://example.com',
-   *   { extractTitleH1: true, checkCanonical: true }
-   * );
+    /**
+   * The main public method to discover and parse sitemaps for a website.
+   * It orchestrates the entire process from robots.txt discovery, fallback to common paths,
+   * processing sitemap indexes and individual sitemaps, and extracting page data.
+   * @param baseUrl - The base URL of the website to parse.
+   * @param settings - Configuration for the extraction process.
+   * @returns A promise that resolves to a `SitemapParserResponse` object.
    */
   async parseWebsiteSitemaps(
     baseUrl: string,
     settings: ExtractionSettings,
   ): Promise<SitemapParserResponse> {
-    // Validate input URL format
-    if (!baseUrl || !baseUrl.startsWith('http')) {
+    if (!baseUrl || !/^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i.test(baseUrl)) {
       throw new BadRequestException(
-        'Invalid base URL provided. Must start with http:// or https://',
+        'Invalid or malformed base URL provided. Please provide a valid URL including the protocol (http:// or https://).',
       );
     }
 
-    // Clean trailing slashes for consistent URL handling
     const cleanedBaseUrl = baseUrl.replace(/\/+$/, '');
-
-    // Initialize processing collections
     const sitemapsToProcess: Set<string> = new Set();
     const discoveredSitemapsInfo: SitemapInfo[] = [];
 
     this.logger.log(`Attempting to discover sitemaps via robots.txt for ${cleanedBaseUrl}`);
     try {
       const robotsTxtUrl = `${cleanedBaseUrl}/robots.txt`;
-      const robotsTxtContent = await this.fetchUrlContent(robotsTxtUrl);
-      if (robotsTxtContent) {
+      const robotsTxtContent = await this.fetchUrlContent(robotsTxtUrl, 'text');
+      if (typeof robotsTxtContent === 'string') {
         const sitemapLinks = this.extractSitemapsFromRobotsTxt(robotsTxtContent);
         if (sitemapLinks.length > 0) {
           sitemapLinks.forEach((link) => sitemapsToProcess.add(link));
-          this.logger.log(
-            `Found sitemap(s) in robots.txt: ${Array.from(sitemapsToProcess).join(', ')}`,
-          );
+          this.logger.log(`Found sitemap(s) in robots.txt: ${sitemapLinks.join(', ')}`);
         } else {
           this.logger.warn(`No Sitemap directives found in robots.txt for ${cleanedBaseUrl}`);
         }
       }
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.logger.warn(
-        `Could not fetch or parse robots.txt for ${cleanedBaseUrl}: ${errorMessage}`,
-      );
+      this.logger.warn(`Could not fetch or parse robots.txt for ${cleanedBaseUrl}: ${errorMessage}`);
     }
 
     if (sitemapsToProcess.size === 0) {
@@ -139,26 +104,19 @@ export class SitemapParserService {
       for (const path of this.commonSitemapPaths) {
         const sitemapCandidateUrl = `${cleanedBaseUrl}${path}`;
         try {
-          const response = await lastValueFrom(
-            this.httpService.get(sitemapCandidateUrl, { timeout: 5000 }),
-          );
-          if (response.status === 200 && response.data) {
-            sitemapsToProcess.add(sitemapCandidateUrl);
-            this.logger.log(`Found common sitemap path: ${sitemapCandidateUrl}`);
-          }
+          // Use HEAD request for efficiency to check existence
+          await lastValueFrom(this.httpService.head(sitemapCandidateUrl, { timeout: 5000 }));
+          sitemapsToProcess.add(sitemapCandidateUrl);
+          this.logger.log(`Found common sitemap path: ${sitemapCandidateUrl}`);
         } catch (e: unknown) {
-          const errorMessage = e instanceof Error ? e.message : String(e);
-          this.logger.debug(
-            `Common sitemap path not found or accessible: ${sitemapCandidateUrl} - ${errorMessage}`,
-          );
+          // This is expected if path doesn't exist, so debug log is appropriate
+          this.logger.debug(`Common sitemap path not found or accessible: ${sitemapCandidateUrl}`);
         }
       }
     }
 
     if (sitemapsToProcess.size === 0) {
-      throw new BadRequestException(
-        'Could not find any valid sitemap for the provided website after checking robots.txt and common paths.',
-      );
+      throw new BadRequestException('Could not find any valid sitemap for the provided website.');
     }
 
     const allExtractedUrls: ParsedPageData[] = [];
@@ -167,223 +125,219 @@ export class SitemapParserService {
 
     while (sitemapProcessingQueue.length > 0) {
       const currentSitemapUrl = sitemapProcessingQueue.shift();
-
       if (!currentSitemapUrl || processedSitemapsUrls.has(currentSitemapUrl)) {
         continue;
       }
       processedSitemapsUrls.add(currentSitemapUrl);
 
       this.logger.log(`Processing sitemap: ${currentSitemapUrl}`);
+      const sitemapType = this.getSitemapType(currentSitemapUrl);
       let currentSitemapInfo: SitemapInfo = {
         url: currentSitemapUrl,
         status: 'error',
         urlCount: 0,
-        success: false,
-        type: 'xml',
+        type: sitemapType,
       };
 
       try {
-        const xmlContent = await this.fetchUrlContent(currentSitemapUrl);
-        if (!xmlContent) {
+        const sitemapContent = await this.fetchUrlContent(
+          currentSitemapUrl,
+          currentSitemapUrl.endsWith('.gz') ? 'arraybuffer' : 'text',
+        );
+
+        if (!sitemapContent) {
           throw new Error('Sitemap content is empty or could not be fetched.');
         }
-        if (
-          xmlContent.trim().startsWith('<') &&
-          (xmlContent.includes('<!DOCTYPE html>') || xmlContent.includes('<html'))
-        ) {
-          throw new Error('Received HTML content instead of XML sitemap.');
-        }
 
-        const parsedXml = await parseStringPromise(xmlContent);
-
-        if (parsedXml.sitemapindex && parsedXml.sitemapindex.sitemap) {
-          const childSitemaps = parsedXml.sitemapindex.sitemap
-            .map((s: { loc: string[] }) => s.loc[0])
-            .filter(Boolean);
-          this.logger.log(
-            `Discovered ${childSitemaps.length} child sitemaps in index: ${currentSitemapUrl}`,
-          );
-
-          currentSitemapInfo.urlCount = childSitemaps.length;
-          currentSitemapInfo.status = 'success';
-          currentSitemapInfo.sitemapsFound = childSitemaps.map((childUrl: string) => ({
-            url: childUrl,
-            status: 'success',
-          }));
-
-          childSitemaps.forEach((childUrl: string) => {
-            if (!processedSitemapsUrls.has(childUrl)) {
-              sitemapProcessingQueue.push(childUrl);
-            }
-          });
-        } else if (parsedXml.urlset && parsedXml.urlset.url) {
-          const urlsInThisSitemap: string[] = parsedXml.urlset.url
-            .map((entry: { loc: string[] }) => entry.loc[0])
-            .filter(Boolean);
-          currentSitemapInfo.urlCount = urlsInThisSitemap.length;
-          currentSitemapInfo.status = 'success';
-          this.logger.log(
-            `Found ${urlsInThisSitemap.length} URLs in sitemap: ${currentSitemapUrl}`,
-          );
-
-          for (const url of urlsInThisSitemap) {
-            const pageData: ParsedPageData = { url, keyword: this.extractKeywordFromURL(url) };
-
-            if (settings.extractTitleH1 || settings.checkCanonical) {
-              try {
-                const pageHtml = await this.fetchUrlContent(url);
-                if (pageHtml) {
-                  if (settings.extractTitleH1) {
-                    pageData.title = this.extractTitle(pageHtml);
-                    pageData.h1 = this.extractH1(pageHtml);
-                  }
-                  if (settings.checkCanonical) {
-                    const canonicalTag = this.extractCanonical(pageHtml);
-                    pageData.isCanonical = canonicalTag === url;
-                    if (!pageData.isCanonical && canonicalTag) {
-                      pageData.canonicalUrl = canonicalTag;
-                    }
-                  }
-                }
-              } catch (pageFetchError: unknown) {
-                const errorMessage =
-                  pageFetchError instanceof Error ? pageFetchError.message : String(pageFetchError);
-                this.logger.warn(
-                  `Failed to fetch or parse page content for ${url}: ${errorMessage}`,
-                );
-              }
-            }
-
-            if (settings.estimateCompetition) {
-              pageData.competitionEstimate = this.simulateCompetitionEstimate();
-            }
-
-            allExtractedUrls.push(pageData);
+        if (sitemapType === 'txt') {
+          const urls = sitemapContent.toString().split(/\r?\n/).filter(Boolean);
+          const pageDataPromises = urls.map(url => this.extractPageData(url, settings));
+          const pages = await Promise.all(pageDataPromises);
+          allExtractedUrls.push(...pages);
+          currentSitemapInfo = { ...currentSitemapInfo, status: 'success', urlCount: pages.length, type: 'txt' };
+        } else { // XML processing
+          const xmlContent = sitemapContent.toString();
+          if (xmlContent.trim().startsWith('<') && (xmlContent.includes('<!DOCTYPE html>') || xmlContent.includes('<html'))) {
+            throw new Error('Received HTML content instead of XML sitemap.');
           }
-        } else if (
-          settings.parseMultimediaSitemaps &&
-          (parsedXml['image:urlset'] || parsedXml['video:urlset'])
-        ) {
-          this.logger.log(
-            `Detected multimedia sitemap at ${currentSitemapUrl}. (Parsing logic needs full implementation)`,
-          );
-          currentSitemapInfo.urlCount = 0;
-          currentSitemapInfo.status = 'success';
-        } else {
-          throw new Error('Unsupported sitemap format or empty sitemap file.');
+
+          const parsedXml = await parseStringPromise(xmlContent);
+
+          if (parsedXml.sitemapindex && parsedXml.sitemapindex.sitemap) { // Sitemap Index
+            currentSitemapInfo.type = 'xml';
+            const childSitemaps = parsedXml.sitemapindex.sitemap.map((s: { loc: string[] }) => s.loc[0]).filter(Boolean);
+            this.logger.log(`Discovered ${childSitemaps.length} child sitemaps in index: ${currentSitemapUrl}`);
+
+            currentSitemapInfo.status = 'success';
+            currentSitemapInfo.urlCount = childSitemaps.length;
+            currentSitemapInfo.sitemapsFound = childSitemaps.map((childUrl: string) => ({ url: childUrl, status: 'pending' }));
+
+            childSitemaps.forEach((childUrl: string) => {
+              if (!processedSitemapsUrls.has(childUrl)) {
+                sitemapProcessingQueue.push(childUrl);
+              }
+            });
+          } else if (parsedXml.urlset && parsedXml.urlset.url) { // URL Set
+            currentSitemapInfo.type = 'xml';
+            const urlsInThisSitemap: string[] = parsedXml.urlset.url.map((entry: { loc: string[] }) => entry.loc[0]).filter(Boolean);
+            currentSitemapInfo.status = 'success';
+            currentSitemapInfo.urlCount = urlsInThisSitemap.length;
+            this.logger.log(`Found ${urlsInThisSitemap.length} URLs in sitemap: ${currentSitemapUrl}`);
+
+            const pageDataPromises = urlsInThisSitemap.map(url => this.extractPageData(url, settings));
+            const pages = await Promise.all(pageDataPromises);
+            allExtractedUrls.push(...pages);
+          } else {
+            throw new Error('Unsupported XML sitemap format or empty sitemap file.');
+          }
         }
       } catch (e: unknown) {
         const errorMessage = e instanceof Error ? e.message : String(e);
         this.logger.error(`Error processing sitemap ${currentSitemapUrl}: ${errorMessage}`);
         currentSitemapInfo.status = 'error';
         currentSitemapInfo.errorMessage = errorMessage;
-        currentSitemapInfo.urlCount = 0;
       } finally {
         discoveredSitemapsInfo.push(currentSitemapInfo);
       }
     }
 
-    if (allExtractedUrls.length === 0) {
-      throw new BadRequestException(
-        'No URLs could be extracted from any discovered sitemap(s). Please check the website URL and sitemap validity.',
-      );
-    }
-
     return {
       success: true,
-      urls: allExtractedUrls,
+      message: 'Sitemap parsing completed successfully.',
       sitemaps: discoveredSitemapsInfo,
+      extractedUrls: allExtractedUrls,
     };
   }
 
-  private async fetchUrlContent(url: string): Promise<string | null> {
+  private async fetchUrlContent(url: string, responseType: 'text' | 'arraybuffer'): Promise<string | ArrayBuffer | null> {
     try {
-      this.logger.debug(`Fetching content from: ${url}`);
       const response = await lastValueFrom(
-        this.httpService.get(url, {
-          responseType: url.endsWith('.gz') ? 'arraybuffer' : 'text',
-        }),
+        this.httpService.get(url, { responseType: responseType, timeout: 10000 }),
       );
-
-      if (response.status !== 200) {
-        throw new Error(`HTTP Status ${response.status} for ${url}`);
+      if (responseType === 'arraybuffer' && response.data instanceof ArrayBuffer) {
+        // Decompress gzipped content
+        const buffer = Buffer.from(response.data);
+        if (url.endsWith('.gz')) {
+          const gunzip = promisify(zlib.gunzip);
+          const decompressed = await gunzip(buffer);
+          return decompressed.toString('utf-8');
+        } else {
+          return buffer.toString('utf-8');
+        }
+      } else if (typeof response.data === 'string') {
+        return response.data;
       }
-
-      if (url.endsWith('.gz') && response.data instanceof ArrayBuffer) {
-        return new Promise((resolve, reject) => {
-          zlib.gunzip(Buffer.from(response.data), (err: Error | null, dezipped: Buffer) => {
-            if (err) {
-              this.logger.error(`Failed to gunzip ${url}: ${err.message}`);
-              reject(new Error(`Failed to decompress gzipped content for ${url}`));
-            } else {
-              resolve(dezipped.toString('utf-8'));
-            }
-          });
-        });
-      }
-
-      return response.data;
+      return null;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to fetch content from ${url}: ${errorMessage}`);
+      this.logger.error(`Failed to fetch content from ${url}: ${errorMessage}`);
       return null;
     }
   }
 
-  private extractSitemapsFromRobotsTxt(content: string): string[] {
+  private extractSitemapsFromRobotsTxt(robotsTxtContent: string): string[] {
     const sitemapLinks: string[] = [];
-    const lines = content.split('\n');
+    const lines = robotsTxtContent.split(/\r?\n/);
     for (const line of lines) {
       const trimmedLine = line.trim();
-      if (trimmedLine.toLowerCase().startsWith('sitemap:')) {
-        const url = trimmedLine.substring('sitemap:'.length).trim();
-        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-          sitemapLinks.push(url);
+      if (trimmedLine.startsWith('Sitemap:')) {
+        const sitemapUrl = trimmedLine.substring('Sitemap:'.length).trim();
+        if (sitemapUrl) {
+          sitemapLinks.push(sitemapUrl);
         }
       }
     }
     return sitemapLinks;
   }
 
-  private extractKeywordFromURL(url: string): string {
-    try {
-      const pathname = new URL(url).pathname;
-      const decoded = decodeURIComponent(pathname);
-      const cleanPath = decoded
-        .replace(/\.(html|htm|php|asp|aspx|pdf|jpg|png|gif)$/i, '')
-        .replace(/\/+$/, '');
-      const segments = cleanPath.split('/').filter(Boolean);
-      const keyword = segments.pop()?.replace(/-/g, ' ').trim();
-      return keyword || 'لا توجد كلمة مفتاحية';
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Error extracting keyword from URL ${url}: ${errorMessage}`);
-      return 'رابط غير صالح';
+  private getSitemapType(url: string): SitemapType {
+    if (url.endsWith('.txt') || url.endsWith('.txt.gz')) {
+      return 'txt';
     }
+    return 'xml';
   }
 
-  private extractTitle(html: string): string | undefined {
-    const $ = cheerio.load(html);
-    return $('title').text().trim() || undefined;
+  private async extractPageData(url: string, settings: ExtractionSettings): Promise<ParsedPageData> {
+    const pageData: ParsedPageData = {
+      url: url,
+      keyword: '',
+      title: '',
+      h1: '',
+      canonicalUrl: '',
+      wordCount: 0,
+      internalLinks: 0,
+      externalLinks: 0,
+      competition: 0,
+      status: 'pending',
+      errorMessage: '',
+    };
+
+    try {
+      const htmlContent = await this.fetchUrlContent(url, 'text');
+      if (!htmlContent) {
+        throw new Error('Could not fetch page content.');
+      }
+
+      const $ = cheerio.load(htmlContent.toString());
+
+      if (settings.extractTitle) {
+        pageData.title = $('title').text().trim();
+      }
+      if (settings.extractH1) {
+        pageData.h1 = $('h1').first().text().trim();
+      }
+      if (settings.checkCanonicalUrl) {
+        pageData.canonicalUrl = $('link[rel="canonical"]').attr('href') || '';
+      }
+      if (settings.countWords) {
+        pageData.wordCount = this.countWordsInHtml(htmlContent.toString());
+      }
+      if (settings.countInternalAndExternalLinks) {
+        const links = this.countInternalAndExternalLinks(url, htmlContent.toString());
+        pageData.internalLinks = links.internal;
+        pageData.externalLinks = links.external;
+      }
+      if (settings.estimateCompetition) {
+        // Placeholder for competition estimation logic
+        pageData.competition = Math.floor(Math.random() * 100) + 1; // Example random value
+      }
+      pageData.status = 'success';
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.error(`Error extracting page data for ${url}: ${errorMessage}`);
+      pageData.status = 'error';
+      pageData.errorMessage = errorMessage;
+    }
+    return pageData;
   }
 
-  private extractH1(html: string): string | undefined {
-    const $ = cheerio.load(html);
-    return $('h1').first().text().trim() || undefined;
+  private countWordsInHtml(htmlContent: string): number {
+    const $ = cheerio.load(htmlContent);
+    const text = $('body').text();
+    const words = text.split(/\s+/).filter(word => word.length > 0);
+    return words.length;
   }
 
-  private extractCanonical(html: string): string | undefined {
-    const $ = cheerio.load(html);
-    return $('link[rel="canonical"]').attr('href')?.trim() || undefined;
-  }
+  private countInternalAndExternalLinks(baseUrl: string, htmlContent: string): { internal: number; external: number } {
+    const $ = cheerio.load(htmlContent);
+    let internalLinks = 0;
+    let externalLinks = 0;
 
-  /**
-   * Simulates a basic competition estimate.
-   * In a real scenario, this would integrate with a third-party API.
-   * Fixed: Added non-null assertion (!) to satisfy TypeScript's strictness.
-   */
-  private simulateCompetitionEstimate(): string {
-    const estimates = ['منخفض', 'متوسط', 'مرتفع'];
-    return estimates[Math.floor(Math.random() * estimates.length)];
+    $('a[href]').each((_i, link) => {
+      const href = $(link).attr('href');
+      if (href) {
+        try {
+          const url = new URL(href, baseUrl);
+          if (url.hostname === new URL(baseUrl).hostname) {
+            internalLinks++;
+          } else {
+            externalLinks++;
+          }
+        } catch (e) {
+          this.logger.debug(`Invalid URL found: ${href}`);
+        }
+      }
+    });
+    return { internal: internalLinks, external: externalLinks };
   }
 }

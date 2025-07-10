@@ -22,6 +22,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@backend/*": ["../../backend/src/*"],
       "@internal-linking-analyzer-pro/types": ["../../packages/types/src"],
       "@internal-linking-analyzer-pro/types/*": ["../../packages/types/src/*"]
     }

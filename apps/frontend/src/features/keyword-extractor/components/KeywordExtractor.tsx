@@ -10,7 +10,13 @@
 import React, { useState, useEffect, useCallback, useMemo, ChangeEvent } from 'react'; // Import ChangeEvent
 
 // Import the custom hook and shared interfaces
-import { useKeywordExtraction, ExtractionSettings, SitemapInfo, KeywordExtractionRow, ParsedPageData } from '@internal-linking-analyzer-pro/types/sitemap'; // Fixed: Import from shared types
+import { useKeywordExtraction } from '@/hooks/useKeywordExtraction';
+import {
+  ExtractionSettings,
+  SitemapInfo,
+  KeywordExtractionRow,
+  ParsedPageData,
+} from '@internal-linking-analyzer-pro/types';
 
 // shadcn/ui components (assuming they are set up in your project)
 import { Button } from '@/components/ui/button';
@@ -49,8 +55,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 // Lucide React Icons
-import { Loader2, Settings, X, Search, Link as LinkIcon, ExternalLink, Trash2, Copy } from 'lucide-react';
+import {
+  Loader2,
+  Settings,
+  X,
+  Search,
+  Link as LinkIcon,
+  ExternalLink,
+  Trash2,
+  Copy,
+} from 'lucide-react';
 
+/**
+ * The main component for the Keyword Extractor tool.
+ * It orchestrates the UI and logic for fetching, displaying, and managing keyword data.
+ * It utilizes the `useKeywordExtraction` hook to manage its state and business logic.
+ * @returns A React functional component.
+ */
 export default function KeywordExtractor() {
   const {
     rows,
@@ -66,6 +87,7 @@ export default function KeywordExtractor() {
     sortConfig,
     setUrlsText,
     setKeywordsText,
+    setError,
     setSettings,
     setFilterText,
     requestSort,
@@ -89,12 +111,15 @@ export default function KeywordExtractor() {
   const [isRemoveSelectedConfirmOpen, setIsRemoveSelectedConfirmOpen] = useState(false);
   const [isRemoveUnselectedConfirmOpen, setIsRemoveUnselectedConfirmOpen] = useState(false);
 
-  // Use useMemo to get the filtered and sorted rows for display
-  const displayedRows = useMemo(() => filteredAndSortedRows(), [filteredAndSortedRows]);
+  // The filteredAndSortedRows is already memoized in the hook, so we can use it directly.
+  const displayedRows = filteredAndSortedRows;
 
   // Handle URL extraction from text area
   const handleUrlExtractClick = useCallback(() => {
-    const urls = urlsText.split('\n').map(url => url.trim()).filter(Boolean);
+    const urls = urlsText
+      .split('\n')
+      .map(url => url.trim())
+      .filter(Boolean);
     if (urls.length > 0) {
       // For manual input, we only have the URL string, so create ParsedPageData objects
       // The keyword will be extracted by the hook's internal logic
@@ -104,7 +129,7 @@ export default function KeywordExtractor() {
       // Use the hook's setError for consistency
       // Note: The `error` state in useKeywordExtraction is used for both success and error messages
       // A more robust solution might use a dedicated `toast` notification system.
-      (setError as (msg: string | null) => void)('الرجاء إدخال روابط في صندوق "الروابط فقط".'); // Cast setError to handle string | null
+      setError('الرجاء إدخال روابط في صندوق "الروابط فقط".');
     }
   }, [urlsText, handleExtract, setError]);
 
@@ -114,13 +139,17 @@ export default function KeywordExtractor() {
   }, [sitemapUrlInput, handleExtractFromSitemap]);
 
   // Handle setting changes
-  const handleSettingChange = useCallback((key: keyof ExtractionSettings, checked: boolean) => {
-    setSettings(prev => ({ ...prev, [key]: checked }));
-  }, [setSettings]);
+  const handleSettingChange = useCallback(
+    (key: keyof ExtractionSettings, checked: boolean) => {
+      setSettings(prev => ({ ...prev, [key]: checked }));
+    },
+    [setSettings]
+  );
 
   // Effect to manage error dialog
   useEffect(() => {
-    if (error && error !== 'تم نسخ النص إلى الحافظة بنجاح.') { // Only show dialog for actual errors, not success messages
+    if (error && error !== 'تم نسخ النص إلى الحافظة بنجاح.') {
+      // Only show dialog for actual errors, not success messages
       setIsErrorDialogOpen(true);
     } else {
       setIsErrorDialogOpen(false);
@@ -131,7 +160,9 @@ export default function KeywordExtractor() {
 
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-8">
-      <h1 className="text-3xl font-bold text-gray-800 text-center">أداة استخراج الكلمات المفتاحية</h1>
+      <h1 className="text-3xl font-bold text-gray-800 text-center">
+        أداة استخراج الكلمات المفتاحية
+      </h1>
 
       {/* Settings Dialog */}
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
@@ -147,7 +178,9 @@ export default function KeywordExtractor() {
               <Checkbox
                 id="extractTitleH1"
                 checked={settings.extractTitleH1}
-                onCheckedChange={(checked: boolean | 'indeterminate') => handleSettingChange('extractTitleH1', Boolean(checked))} // Fixed type
+                onCheckedChange={(checked) =>
+                  handleSettingChange('extractTitleH1', Boolean(checked))
+                }
               />
               <Label htmlFor="extractTitleH1">تحليل عنوان الصفحة (&lt;title&gt;) وعلامة H1</Label>
             </div>
@@ -155,23 +188,33 @@ export default function KeywordExtractor() {
               <Checkbox
                 id="detectDuplicates"
                 checked={settings.detectDuplicates}
-                onCheckedChange={(checked: boolean | 'indeterminate') => setSettings(prev => ({ ...prev, detectDuplicates: Boolean(checked) }))} // Fixed type
+                onCheckedChange={(checked) =>
+                  setSettings(prev => ({ ...prev, detectDuplicates: Boolean(checked) }))
+                }
               />
-              <Label htmlFor="detectDuplicates">اكتشاف الكلمات المفتاحية المكررة وتجميعها (Frontend)</Label>
+              <Label htmlFor="detectDuplicates">
+                اكتشاف الكلمات المفتاحية المكررة وتجميعها (Frontend)
+              </Label>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="parseMultimediaSitemaps"
                 checked={settings.parseMultimediaSitemaps}
-                onCheckedChange={(checked: boolean | 'indeterminate') => handleSettingChange('parseMultimediaSitemaps', Boolean(checked))} // Fixed type
+                onCheckedChange={(checked: boolean | 'indeterminate') =>
+                  handleSettingChange('parseMultimediaSitemaps', Boolean(checked))
+                } // Fixed type
               />
-              <Label htmlFor="parseMultimediaSitemaps">تحليل روابط Sitemap للصور والفيديوهات (Backend)</Label>
+              <Label htmlFor="parseMultimediaSitemaps">
+                تحليل روابط Sitemap للصور والفيديوهات (Backend)
+              </Label>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="checkCanonical"
                 checked={settings.checkCanonical}
-                onCheckedChange={(checked: boolean | 'indeterminate') => handleSettingChange('checkCanonical', Boolean(checked))} // Fixed type
+                onCheckedChange={(checked: boolean | 'indeterminate') =>
+                  handleSettingChange('checkCanonical', Boolean(checked))
+                } // Fixed type
               />
               <Label htmlFor="checkCanonical">فحص Canonical URL (Backend - قد يبطئ العملية)</Label>
             </div>
@@ -179,26 +222,38 @@ export default function KeywordExtractor() {
               <Checkbox
                 id="estimateCompetition"
                 checked={settings.estimateCompetition}
-                onCheckedChange={(checked: boolean | 'indeterminate') => handleSettingChange('estimateCompetition', Boolean(checked))} // Fixed type
+                onCheckedChange={(checked: boolean | 'indeterminate') =>
+                  handleSettingChange('estimateCompetition', Boolean(checked))
+                } // Fixed type
               />
-              <Label htmlFor="estimateCompetition">تقدير مستوى المنافسة للكلمات المفتاحية (Backend - بيانات تقديرية)</Label>
+              <Label htmlFor="estimateCompetition">
+                تقدير مستوى المنافسة للكلمات المفتاحية (Backend - بيانات تقديرية)
+              </Label>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="urlCategorization"
                 checked={settings.urlCategorization}
-                onCheckedChange={(checked: boolean | 'indeterminate') => setSettings(prev => ({ ...prev, urlCategorization: Boolean(checked) }))} // Fixed type
+                onCheckedChange={(checked: boolean | 'indeterminate') =>
+                  setSettings(prev => ({ ...prev, urlCategorization: Boolean(checked) }))
+                } // Fixed type
               />
-              <Label htmlFor="urlCategorization">تصنيف الروابط (مقالة، منتج، فئة...) (Frontend)</Label>
+              <Label htmlFor="urlCategorization">
+                تصنيف الروابط (مقالة، منتج، فئة...) (Frontend)
+              </Label>
             </div>
             <Separator className="my-4" />
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="enableAdvancedTableFeatures"
                 checked={settings.enableAdvancedTableFeatures}
-                onCheckedChange={(checked: boolean | 'indeterminate') => setSettings(prev => ({ ...prev, enableAdvancedTableFeatures: Boolean(checked) }))} // Fixed type
+                onCheckedChange={(checked) =>
+                  handleSettingChange('enableAdvancedTableFeatures', Boolean(checked))
+                }
               />
-              <Label htmlFor="enableAdvancedTableFeatures">تفعيل ميزات الجدول المتقدمة (فرز، تصفية)</Label>
+              <Label htmlFor="enableAdvancedTableFeatures">
+                تفعيل ميزات الجدول المتقدمة (الفرز، التصفية، الترقيم)
+              </Label>
             </div>
           </div>
           <DialogFooter>
@@ -213,7 +268,8 @@ export default function KeywordExtractor() {
           <AlertDialogHeader>
             <AlertDialogTitle>هل أنت متأكد من مسح الكل؟</AlertDialogTitle>
             <AlertDialogDescription>
-              سيؤدي هذا الإجراء إلى مسح جميع البيانات من الجدول وصناديق النصوص. لا يمكن التراجع عن هذا الإجراء.
+              سيؤدي هذا الإجراء إلى مسح جميع البيانات من الجدول وصناديق النصوص. لا يمكن التراجع عن
+              هذا الإجراء.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -234,23 +290,41 @@ export default function KeywordExtractor() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { handleRemoveSelectedRows(); setIsRemoveSelectedConfirmOpen(false); }}>حذف</AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                handleRemoveSelectedRows();
+                setIsRemoveSelectedConfirmOpen(false);
+              }}
+            >
+              حذف
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Remove Unselected Confirmation Dialog */}
-      <AlertDialog open={isRemoveUnselectedConfirmOpen} onOpenChange={setIsRemoveUnselectedConfirmOpen}>
+      <AlertDialog
+        open={isRemoveUnselectedConfirmOpen}
+        onOpenChange={setIsRemoveUnselectedConfirmOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>هل أنت متأكد من حذف الصفوف غير المحددة؟</AlertDialogTitle>
             <AlertDialogDescription>
-              سيتم حذف {rows.length - selectedRows.size} صفوف غير محددة من الجدول. لا يمكن التراجع عن هذا الإجراء.
+              سيتم حذف {rows.length - selectedRows.size} صفوف غير محددة من الجدول. لا يمكن التراجع
+              عن هذا الإجراء.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { handleRemoveUnselectedRows(); setIsRemoveUnselectedConfirmOpen(false); }}>حذف</AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                handleRemoveUnselectedRows();
+                setIsRemoveUnselectedConfirmOpen(false);
+              }}
+            >
+              حذف
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -262,9 +336,7 @@ export default function KeywordExtractor() {
             <AlertDialogTitle className="text-destructive flex items-center gap-2">
               <X className="size-5" /> خطأ!
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {error}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{error}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setIsErrorDialogOpen(false)}>موافق</AlertDialogAction>
@@ -278,7 +350,12 @@ export default function KeywordExtractor() {
           <CardTitle className="text-2xl font-bold text-gray-800">
             أداة استخراج الكلمات المفتاحية
           </CardTitle>
-          <Button onClick={() => setIsSettingsOpen(true)} variant="outline" size="sm" className="gap-2">
+          <Button
+            onClick={() => setIsSettingsOpen(true)}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
             <Settings className="size-4" /> إعدادات
           </Button>
         </CardHeader>
@@ -323,7 +400,9 @@ export default function KeywordExtractor() {
                   type="url"
                   placeholder="https://example.com/"
                   value={sitemapUrlInput}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setSitemapUrlInput(e.target.value)} // Fixed type
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setSitemapUrlInput(e.target.value)
+                  } // Fixed type
                   className="w-full pl-10" // Add padding for icon
                   disabled={isLoading}
                 />
@@ -339,8 +418,13 @@ export default function KeywordExtractor() {
             </div>
             {isLoading && progress > 0 && progress < 100 && (
               <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
-                <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
-                <p className="text-center text-sm mt-1">{progress.toFixed(0)}% مكتمل</p>
+                <div
+                  className="bg-primary h-2.5 rounded-full"
+                  style={{ width: `${progress}%` }}
+                ></div>
+                <p className="text-center text-sm mt-1">
+                  {progress.processed} / {progress.total} ({(progress.total > 0 ? (progress.processed / progress.total * 100) : 0).toFixed(2)}%)
+                </p>
               </div>
             )}
           </div>
@@ -366,30 +450,53 @@ export default function KeywordExtractor() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sitemaps.map((sitemap: SitemapInfo, index: number) => ( // Fixed types
-                    <TableRow key={index}>
-                      <TableCell className="break-all text-xs">
-                        <a href={sitemap.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                          {sitemap.url} <ExternalLink className="size-3" />
-                        </a>
-                      </TableCell>
-                      <TableCell>{sitemap.urlCount !== undefined ? sitemap.urlCount : (sitemap.sitemapsFound?.length || 0)}</TableCell>
-                      <TableCell>
-                        <Badge variant={sitemap.status === 'success' ? 'default' : 'destructive'}>
-                          {sitemap.status === 'success' ? 'نجاح' : 'فشل'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-red-600">{sitemap.errorMessage || '---'}</TableCell>
-                      <TableCell>
-                        {sitemap.status === 'success' && sitemap.urlCount !== undefined && sitemap.urlCount > 0 && (
-                          <Button variant="outline" size="sm" onClick={() => handleExtractFromSitemap(sitemap.url)} disabled={isLoading}>
-                            معالجة هذا Sitemap
-                          </Button>
-                        )}
-                        {/* Optionally, if it's a sitemap index that wasn't fully processed, you could add a re-process button */}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {sitemaps.map(
+                    (
+                      sitemap: SitemapInfo,
+                      index: number // Fixed types
+                    ) => (
+                      <TableRow key={index}>
+                        <TableCell className="break-all text-xs">
+                          <a
+                            href={sitemap.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline flex items-center gap-1"
+                          >
+                            {sitemap.url} <ExternalLink className="size-3" />
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          {sitemap.urlCount !== undefined
+                            ? sitemap.urlCount
+                            : sitemap.sitemapsFound?.length || 0}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={sitemap.status === 'success' ? 'default' : 'destructive'}>
+                            {sitemap.status === 'success' ? 'نجاح' : 'فشل'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-red-600">
+                          {sitemap.errorMessage || '---'}
+                        </TableCell>
+                        <TableCell>
+                          {sitemap.status === 'success' &&
+                            sitemap.urlCount !== undefined &&
+                            sitemap.urlCount > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleExtractFromSitemap(sitemap.url)}
+                                disabled={isLoading}
+                              >
+                                معالجة هذا Sitemap
+                              </Button>
+                            )}
+                          {/* Optionally, if it's a sitemap index that wasn't fully processed, you could add a re-process button */}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -432,7 +539,12 @@ export default function KeywordExtractor() {
               >
                 <Trash2 className="size-4" /> حذف غير المحدد
               </Button>
-              <Button onClick={() => setIsClearConfirmOpen(true)} variant="destructive" size="sm" className="gap-1.5">
+              <Button
+                onClick={() => setIsClearConfirmOpen(true)}
+                variant="destructive"
+                size="sm"
+                className="gap-1.5"
+              >
                 <Trash2 className="size-4" /> مسح الجدول
               </Button>
             </div>
@@ -454,96 +566,200 @@ export default function KeywordExtractor() {
               </div>
             )}
 
-            <div className="overflow-auto max-h-[600px] w-full"> {/* Max height for scrollable table */}
+            <div className="overflow-auto max-h-[600px] w-full">
+              {' '}
+              {/* Max height for scrollable table */}
               <Table>
                 <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
                   <TableRow>
                     <TableHead className="w-[50px]">
                       <Checkbox
                         checked={allRowsSelected}
-                        onCheckedChange={(checked: boolean | 'indeterminate') => handleSelectAll(Boolean(checked))} // Fixed type
+                        onCheckedChange={(checked: boolean | 'indeterminate') =>
+                          handleSelectAll(Boolean(checked))
+                        } // Fixed type
                         aria-label="تحديد الكل"
                       />
                     </TableHead>
-                    <TableHead className="min-w-[200px] cursor-pointer" onClick={() => requestSort('url')}>الرابط {sortConfig?.key === 'url' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer" onClick={() => requestSort('keyword')}>الكلمة المفتاحية {sortConfig?.key === 'keyword' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</TableHead>
+                    <TableHead
+                      className="min-w-[200px] cursor-pointer"
+                      onClick={() => requestSort('url')}
+                    >
+                      الرابط{' '}
+                      {sortConfig?.key === 'url'
+                        ? sortConfig.direction === 'ascending'
+                          ? '▲'
+                          : '▼'
+                        : ''}
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[150px] cursor-pointer"
+                      onClick={() => requestSort('keyword')}
+                    >
+                      الكلمة المفتاحية{' '}
+                      {sortConfig?.key === 'keyword'
+                        ? sortConfig.direction === 'ascending'
+                          ? '▲'
+                          : '▼'
+                        : ''}
+                    </TableHead>
                     {settings.extractTitleH1 && (
                       <>
-                        <TableHead className="min-w-[200px] cursor-pointer" onClick={() => requestSort('title')}>العنوان (Title) {sortConfig?.key === 'title' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</TableHead>
-                        <TableHead className="min-w-[150px] cursor-pointer" onClick={() => requestSort('h1')}>العنوان الرئيسي (H1) {sortConfig?.key === 'h1' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</TableHead>
+                        <TableHead
+                          className="min-w-[200px] cursor-pointer"
+                          onClick={() => requestSort('title')}
+                        >
+                          العنوان (Title){' '}
+                          {sortConfig?.key === 'title'
+                            ? sortConfig.direction === 'ascending'
+                              ? '▲'
+                              : '▼'
+                            : ''}
+                        </TableHead>
+                        <TableHead
+                          className="min-w-[150px] cursor-pointer"
+                          onClick={() => requestSort('h1')}
+                        >
+                          العنوان الرئيسي (H1){' '}
+                          {sortConfig?.key === 'h1'
+                            ? sortConfig.direction === 'ascending'
+                              ? '▲'
+                              : '▼'
+                            : ''}
+                        </TableHead>
                       </>
                     )}
                     {settings.checkCanonical && (
                       <>
-                        <TableHead className="min-w-[100px] cursor-pointer" onClick={() => requestSort('isCanonical')}>Canonical {sortConfig?.key === 'isCanonical' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</TableHead>
+                        <TableHead
+                          className="min-w-[100px] cursor-pointer"
+                          onClick={() => requestSort('isCanonical')}
+                        >
+                          Canonical{' '}
+                          {sortConfig?.key === 'isCanonical'
+                            ? sortConfig.direction === 'ascending'
+                              ? '▲'
+                              : '▼'
+                            : ''}
+                        </TableHead>
                         <TableHead className="min-w-[200px]">Canonical URL</TableHead>
                       </>
                     )}
                     {settings.estimateCompetition && (
-                      <TableHead className="min-w-[120px] cursor-pointer" onClick={() => requestSort('competitionEstimate')}>المنافسة {sortConfig?.key === 'competitionEstimate' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</TableHead>
+                      <TableHead
+                        className="min-w-[120px] cursor-pointer"
+                        onClick={() => requestSort('competitionEstimate')}
+                      >
+                        المنافسة{' '}
+                        {sortConfig?.key === 'competitionEstimate'
+                          ? sortConfig.direction === 'ascending'
+                            ? '▲'
+                            : '▼'
+                          : ''}
+                      </TableHead>
                     )}
                     {settings.urlCategorization && (
-                      <TableHead className="min-w-[120px] cursor-pointer" onClick={() => requestSort('urlCategory')}>التصنيف {sortConfig?.key === 'urlCategory' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</TableHead>
+                      <TableHead
+                        className="min-w-[120px] cursor-pointer"
+                        onClick={() => requestSort('urlCategory')}
+                      >
+                        التصنيف{' '}
+                        {sortConfig?.key === 'urlCategory'
+                          ? sortConfig.direction === 'ascending'
+                            ? '▲'
+                            : '▼'
+                          : ''}
+                      </TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {displayedRows.length === 0 && filterText && (
                     <TableRow>
-                      <TableCell colSpan={
-                        3 + // Checkbox, URL, Keyword
-                        (settings.extractTitleH1 ? 2 : 0) +
-                        (settings.checkCanonical ? 2 : 0) +
-                        (settings.estimateCompetition ? 1 : 0) +
-                        (settings.urlCategorization ? 1 : 0)
-                      } className="text-center text-muted-foreground py-4">
+                      <TableCell
+                        colSpan={
+                          3 + // Checkbox, URL, Keyword
+                          (settings.extractTitleH1 ? 2 : 0) +
+                          (settings.checkCanonical ? 2 : 0) +
+                          (settings.estimateCompetition ? 1 : 0) +
+                          (settings.urlCategorization ? 1 : 0)
+                        }
+                        className="text-center text-muted-foreground py-4"
+                      >
                         لا توجد نتائج مطابقة لـ "{filterText}".
                       </TableCell>
                     </TableRow>
                   )}
-                  {displayedRows.map((row: KeywordExtractionRow) => ( // Fixed type
-                    <TableRow key={row.id} className={selectedRows.has(row.id) ? 'bg-primary/10' : ''}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedRows.has(row.id)}
-                          onCheckedChange={(checked: boolean | 'indeterminate') => handleSelect(row.id)} // Fixed type
-                          aria-label={`تحديد الصف ${row.id}`}
-                        />
-                      </TableCell>
-                      <TableCell className="break-all text-xs">
-                        <a href={row.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                          {row.url} <ExternalLink className="size-3" />
-                        </a>
-                      </TableCell>
-                      <TableCell className="font-medium text-sm">{row.keyword}</TableCell>
-                      {settings.extractTitleH1 && (
-                        <>
-                          <TableCell className="text-xs">{row.title || '---'}</TableCell>
-                          <TableCell className="text-xs">{row.h1 || '---'}</TableCell>
-                        </>
-                      )}
-                      {settings.checkCanonical && (
-                        <>
-                          <TableCell>
-                            {row.isCanonical === true ? 'نعم' : row.isCanonical === false ? 'لا' : '---'}
+                  {displayedRows.map(
+                    (
+                      row: KeywordExtractionRow // Fixed type
+                    ) => (
+                      <TableRow
+                        key={row.id}
+                        className={selectedRows.has(row.id) ? 'bg-primary/10' : ''}
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedRows.has(row.id)}
+                            onCheckedChange={(checked: boolean | 'indeterminate') =>
+                              handleSelect(row.id)
+                            } // Fixed type
+                            aria-label={`تحديد الصف ${row.id}`}
+                          />
+                        </TableCell>
+                        <TableCell className="break-all text-xs">
+                          <a
+                            href={row.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline flex items-center gap-1"
+                          >
+                            {row.url} <ExternalLink className="size-3" />
+                          </a>
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">{row.keyword}</TableCell>
+                        {settings.extractTitleH1 && (
+                          <>
+                            <TableCell className="text-xs">{row.title || '---'}</TableCell>
+                            <TableCell className="text-xs">{row.h1 || '---'}</TableCell>
+                          </>
+                        )}
+                        {settings.checkCanonical && (
+                          <>
+                            <TableCell>
+                              {row.isCanonical === true
+                                ? 'نعم'
+                                : row.isCanonical === false
+                                  ? 'لا'
+                                  : '---'}
+                            </TableCell>
+                            <TableCell className="break-all text-xs">
+                              {row.canonicalUrl && row.canonicalUrl !== row.url ? (
+                                <a
+                                  href={row.canonicalUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline flex items-center gap-1"
+                                >
+                                  {row.canonicalUrl} <ExternalLink className="size-3" />
+                                </a>
+                              ) : (
+                                '---'
+                              )}
+                            </TableCell>
+                          </>
+                        )}
+                        {settings.estimateCompetition && (
+                          <TableCell className="text-xs">
+                            {row.competitionEstimate || '---'}
                           </TableCell>
-                          <TableCell className="break-all text-xs">
-                            {row.canonicalUrl && row.canonicalUrl !== row.url ? (
-                              <a href={row.canonicalUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                                {row.canonicalUrl} <ExternalLink className="size-3" />
-                              </a>
-                            ) : '---'}
-                          </TableCell>
-                        </>
-                      )}
-                      {settings.estimateCompetition && (
-                        <TableCell className="text-xs">{row.competitionEstimate || '---'}</TableCell>
-                      )}
-                      {settings.urlCategorization && (
-                        <TableCell className="text-xs">{row.urlCategory || '---'}</TableCell>
-                      )}
-                    </TableRow>
-                  ))}
+                        )}
+                        {settings.urlCategorization && (
+                          <TableCell className="text-xs">{row.urlCategory || '---'}</TableCell>
+                        )}
+                      </TableRow>
+                    )
+                  )}
                 </TableBody>
               </Table>
             </div>

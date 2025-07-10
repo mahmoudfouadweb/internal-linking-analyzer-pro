@@ -8,6 +8,8 @@ interface SitemapParseSettings {
   parseMultimediaSitemaps?: boolean;
   checkCanonical?: boolean;
   estimateCompetition?: boolean;
+  countWords?: boolean;
+  countInternalAndExternalLinks?: boolean;
 }
 
 interface SitemapParseRequest {

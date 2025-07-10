@@ -1,20 +1,32 @@
-import { IsString, IsUrl, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsUrl, IsOptional, IsObject, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ParseSitemapRequest } from '@internal-linking-analyzer-pro/types/sitemap';
 
-export class ParseSitemapDto implements ParseSitemapRequest {
+// نعرف DTO للإعدادات بشكل منفصل لتحسين إعادة الاستخدام
+class ParseSitemapSettingsDto {
+  @IsBoolean()
+  @IsOptional()
+  extractTitleH1?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  parseMultimediaSitemaps?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  checkCanonicalUrl?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  estimateCompetition?: boolean;
+}
+
+// ParseSitemapDto متوافق مع ParseSitemapRequest من حزمة types
+export class ParseSitemapDto {
   @IsString()
-  @IsUrl()
+  @IsUrl({}, { message: 'baseUrl يجب أن يكون رابط URL صالحًا.' })
   baseUrl!: string;
 
   @IsOptional()
-  @IsObject()
-  @Type(() => Object)
-  options?: {
-    fetchTitles?: boolean;
-    fetchH1?: boolean;
-    checkCanonical?: boolean;
-    estimateCompetition?: boolean;
-    includeMedia?: boolean;
-  };
+  @Type(() => ParseSitemapSettingsDto)
+  settings?: ParseSitemapSettingsDto;
 }

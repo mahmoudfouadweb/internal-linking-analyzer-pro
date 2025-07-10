@@ -14,7 +14,7 @@ import {
   ParsedPageData,
   SitemapParserResponse,
   KeywordExtractionRow, // Frontend specific row interface
-} from '@internal-linking-analyzer-pro/types/sitemap';
+} from '@internal-linking-analyzer-pro/types';
 
 // Default settings for the extraction features
 const defaultSettings: ExtractionSettings & {
@@ -407,13 +407,13 @@ export function useKeywordExtraction() {
             ? aValue === bValue
               ? 0
               : aValue
-              ? -1
-              : 1
+                ? -1
+                : 1
             : aValue === bValue
-            ? 0
-            : aValue
-            ? 1
-            : -1;
+              ? 0
+              : aValue
+                ? 1
+                : -1;
         }
         return 0;
       });

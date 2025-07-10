@@ -20,9 +20,9 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <body className={inter.className}>
         <Providers> {/* <-- بداية التغليف */}
-          <div className="flex min-h-screen">
+          <div className="flex min-h-screen bg-background text-foreground">
             <Sidebar />
-            <main className="flex-1 p-4 bg-gray-100">{children}</main>
+            <div className="flex-1">{children}</div>
           </div>
         </Providers> {/* <-- نهاية التغليف */}
       </body>

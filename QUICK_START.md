@@ -76,11 +76,59 @@ pnpm --filter frontend run build
 pnpm --filter @internal-linking-analyzer-pro/types run build
 ```
 
+## 🧪 Running Tests
+
+### Backend Tests
+```bash
+# Run all backend tests
+pnpm --filter backend run test
+
+# Run tests with coverage report
+pnpm --filter backend run test:cov
+
+# Run tests in watch mode during development
+pnpm --filter backend run test:watch
+```
+
+### Frontend Tests
+```bash
+# Run all frontend tests
+pnpm --filter frontend run test
+
+# Run tests with coverage report
+pnpm --filter frontend run test:coverage
+
+# Run tests in watch mode during development
+pnpm --filter frontend run test:watch
+```
+
+### Using MSW for Testing
+Mock Service Worker (MSW) is configured for frontend tests to intercept API requests:
+
+```typescript
+// Example MSW handler in a test file
+import { rest } from 'msw'
+import { setupServer } from 'msw/node'
+
+const server = setupServer(
+  rest.post('http://localhost:3002/sitemap-parser/parse', (req, res, ctx) => {
+    return res(ctx.json({ 
+      urls: [{url: 'https://example.com', title: 'Example'}]
+    }))
+  })
+)
+
+beforeAll(() => server.listen())
+aftereEach(() => server.resetHandlers())
+afterAll(() => server.close())
+```
+
 ## 📚 Next Steps
 
 - Read [ARCHITECTURE.md](./ARCHITECTURE.md) for development guidelines
 - Check [PROJECT_STATUS.md](./PROJECT_STATUS.md) for completion details
 - Review [FINAL_TEST.md](./FINAL_TEST.md) for test results
+- Explore [TESTING.md](./TESTING.md) for detailed testing documentation
 
 ---
 

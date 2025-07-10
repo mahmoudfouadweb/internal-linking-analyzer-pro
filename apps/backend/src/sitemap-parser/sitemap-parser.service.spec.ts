@@ -1,9 +1,22 @@
+// إذا كان هناك مشاكل مع jest، قم بتثبيت @types/jest: npm i --save-dev @types/jest
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
 import { SitemapParserService } from './sitemap-parser.service';
 import { BadRequestException, Logger } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 
+interface SitemapParserResponse {
+  urls: Array<{
+    url: string;
+    keyword: string;
+    title?: string;
+    h1?: string;
+    isCanonical?: boolean;
+    competition?: 'low' | 'medium' | 'high';
+  }>;
+  foundSitemaps?: string[];
+}
 describe('SitemapParserService', () => {
   let service: SitemapParserService;
   let httpService: HttpService;
@@ -41,9 +54,10 @@ describe('SitemapParserService', () => {
     it('should throw BadRequestException for invalid URL', async () => {
       await expect(
         service.parseWebsiteSitemaps('invalid-url', {
-          extractTitleH1: false,
+          extractTitle: false,
+          extractH1: false,
           parseMultimediaSitemaps: false,
-          checkCanonical: false,
+          checkCanonicalUrl: false,
           estimateCompetition: false,
         })
       ).rejects.toThrow(BadRequestException);
@@ -64,15 +78,16 @@ describe('SitemapParserService', () => {
         .mockReturnValueOnce(of({ data: sitemapXml, status: 200 } as any));
 
       const result = await service.parseWebsiteSitemaps(baseUrl, {
-        extractTitleH1: false,
+        extractTitle: false,
+        extractH1: false,
         parseMultimediaSitemaps: false,
-        checkCanonical: false,
+        checkCanonicalUrl: false,
         estimateCompetition: false,
       });
 
-      expect(result.urls).toHaveLength(1);
-      expect(result.urls[0]?.url).toBe('https://example.com/page1');
-      expect(result.urls[0]?.keyword).toBe('page1');
+      expect(result.extractedUrls).toHaveLength(1);
+      expect(result.extractedUrls[0]?.url).toBe('https://example.com/page1');
+      expect(result.extractedUrls[0]?.keyword).toBe('page1');
     });
 
     it.skip('should fallback to common sitemap paths when robots.txt fails', async () => {
@@ -96,14 +111,15 @@ describe('SitemapParserService', () => {
       httpSpy.mockReturnValueOnce(of({ data: sitemapXml, status: 200 } as any));
 
       const result = await service.parseWebsiteSitemaps(baseUrl, {
-        extractTitleH1: false,
+        extractTitle: false,
+        extractH1: false,
         parseMultimediaSitemaps: false,
-        checkCanonical: false,
+        checkCanonicalUrl: false,
         estimateCompetition: false,
       });
 
-      expect(result.urls).toHaveLength(1);
-      expect(result.urls[0]?.url).toBe('https://example.com/page1');
+      expect(result.extractedUrls).toHaveLength(1);
+      expect(result.extractedUrls[0]?.url).toBe('https://example.com/page1');
     });
 
     it('should throw BadRequestException when no sitemaps are found', async () => {
@@ -114,9 +130,10 @@ describe('SitemapParserService', () => {
 
       await expect(
         service.parseWebsiteSitemaps(baseUrl, {
-          extractTitleH1: false,
+          extractTitle: false,
+          extractH1: false,
           parseMultimediaSitemaps: false,
-          checkCanonical: false,
+          checkCanonicalUrl: false,
           estimateCompetition: false,
         })
       ).rejects.toThrow(BadRequestException);

@@ -23,6 +23,7 @@ import { parseStringPromise } from 'xml2js';
 import { lastValueFrom } from 'rxjs';
 import * as zlib from 'zlib';
 import * as cheerio from 'cheerio';
+import { SitemapParserDomainService } from './domain/services/sitemap-parser.domain.service';
 
 import {
   ExtractionSettings,
@@ -57,7 +58,10 @@ export class SitemapParserService {
     '/sitemap/sitemap.xml',
   ];
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly domainService: SitemapParserDomainService,
+  ) {}
 
     /**
    * The main public method to discover and parse sitemaps for a website.
@@ -86,7 +90,7 @@ export class SitemapParserService {
       const robotsTxtUrl = `${cleanedBaseUrl}/robots.txt`;
       const robotsTxtContent = await this.fetchUrlContent(robotsTxtUrl, 'text');
       if (typeof robotsTxtContent === 'string') {
-        const sitemapLinks = this.extractSitemapsFromRobotsTxt(robotsTxtContent);
+        const sitemapLinks = this.domainService.extractSitemapsFromRobotsTxt(robotsTxtContent);
         if (sitemapLinks.length > 0) {
           sitemapLinks.forEach((link) => sitemapsToProcess.add(link));
           this.logger.log(`Found sitemap(s) in robots.txt: ${sitemapLinks.join(', ')}`);
@@ -131,12 +135,13 @@ export class SitemapParserService {
       processedSitemapsUrls.add(currentSitemapUrl);
 
       this.logger.log(`Processing sitemap: ${currentSitemapUrl}`);
-      const sitemapType = this.getSitemapType(currentSitemapUrl);
+      const sitemapType = this.domainService.getSitemapType(currentSitemapUrl);
       let currentSitemapInfo: SitemapInfo = {
         url: currentSitemapUrl,
         status: 'error',
         urlCount: 0,
         type: sitemapType,
+        success: false,
       };
 
       try {
@@ -154,7 +159,7 @@ export class SitemapParserService {
           const pageDataPromises = urls.map(url => this.extractPageData(url, settings));
           const pages = await Promise.all(pageDataPromises);
           allExtractedUrls.push(...pages);
-          currentSitemapInfo = { ...currentSitemapInfo, status: 'success', urlCount: pages.length, type: 'txt' };
+          currentSitemapInfo = { ...currentSitemapInfo, status: 'success', urlCount: pages.length, type: 'txt', success: true };
         } else { // XML processing
           const xmlContent = sitemapContent.toString();
           if (xmlContent.trim().startsWith('<') && (xmlContent.includes('<!DOCTYPE html>') || xmlContent.includes('<html'))) {
@@ -170,6 +175,7 @@ export class SitemapParserService {
 
             currentSitemapInfo.status = 'success';
             currentSitemapInfo.urlCount = childSitemaps.length;
+            currentSitemapInfo.success = true;
             currentSitemapInfo.sitemapsFound = childSitemaps.map((childUrl: string) => ({ url: childUrl, status: 'pending' }));
 
             childSitemaps.forEach((childUrl: string) => {
@@ -182,6 +188,7 @@ export class SitemapParserService {
             const urlsInThisSitemap: string[] = parsedXml.urlset.url.map((entry: { loc: string[] }) => entry.loc[0]).filter(Boolean);
             currentSitemapInfo.status = 'success';
             currentSitemapInfo.urlCount = urlsInThisSitemap.length;
+            currentSitemapInfo.success = true;
             this.logger.log(`Found ${urlsInThisSitemap.length} URLs in sitemap: ${currentSitemapUrl}`);
 
             const pageDataPromises = urlsInThisSitemap.map(url => this.extractPageData(url, settings));
@@ -195,6 +202,7 @@ export class SitemapParserService {
         const errorMessage = e instanceof Error ? e.message : String(e);
         this.logger.error(`Error processing sitemap ${currentSitemapUrl}: ${errorMessage}`);
         currentSitemapInfo.status = 'error';
+        currentSitemapInfo.success = false;
         currentSitemapInfo.errorMessage = errorMessage;
       } finally {
         discoveredSitemapsInfo.push(currentSitemapInfo);
@@ -235,40 +243,23 @@ export class SitemapParserService {
     }
   }
 
-  private extractSitemapsFromRobotsTxt(robotsTxtContent: string): string[] {
-    const sitemapLinks: string[] = [];
-    const lines = robotsTxtContent.split(/\r?\n/);
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('Sitemap:')) {
-        const sitemapUrl = trimmedLine.substring('Sitemap:'.length).trim();
-        if (sitemapUrl) {
-          sitemapLinks.push(sitemapUrl);
-        }
-      }
-    }
-    return sitemapLinks;
-  }
 
-  private getSitemapType(url: string): SitemapType {
-    if (url.endsWith('.txt') || url.endsWith('.txt.gz')) {
-      return 'txt';
-    }
-    return 'xml';
-  }
+
+
 
   private async extractPageData(url: string, settings: ExtractionSettings): Promise<ParsedPageData> {
     const pageData: ParsedPageData = {
       url: url,
-      keyword: '',
+      keyword: this.domainService.extractKeywordFromURL(url),
+      status: 'pending',
       title: '',
       h1: '',
       canonicalUrl: '',
+      isCanonical: false,
       wordCount: 0,
       internalLinks: 0,
       externalLinks: 0,
       competition: 0,
-      status: 'pending',
       errorMessage: '',
     };
 
@@ -280,14 +271,13 @@ export class SitemapParserService {
 
       const $ = cheerio.load(htmlContent.toString());
 
-      if (settings.extractTitle) {
+      if (settings.extractTitleH1) {
         pageData.title = $('title').text().trim();
-      }
-      if (settings.extractH1) {
         pageData.h1 = $('h1').first().text().trim();
       }
-      if (settings.checkCanonicalUrl) {
+      if (settings.checkCanonical) {
         pageData.canonicalUrl = $('link[rel="canonical"]').attr('href') || '';
+        pageData.isCanonical = pageData.canonicalUrl === url;
       }
       if (settings.countWords) {
         pageData.wordCount = this.countWordsInHtml(htmlContent.toString());
@@ -340,4 +330,6 @@ export class SitemapParserService {
     });
     return { internal: internalLinks, external: externalLinks };
   }
+
+
 }

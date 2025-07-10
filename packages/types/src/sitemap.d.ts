@@ -1,10 +1,11 @@
 export interface ExtractionSettings {
   extractTitleH1?: boolean;
-  parseMultimediaSitemaps?: boolean;
-  checkCanonical?: boolean;
-  estimateCompetition?: boolean;
+  extractH1?: boolean;
   countWords?: boolean;
   countInternalAndExternalLinks?: boolean;
+  checkCanonical?: boolean; // ✅ بدلاً من checkCanonicalUrl
+  estimateCompetition?: boolean;
+  parseMultimediaSitemaps?: boolean; // ✅ لو فعلاً هتستخدمه
 }
 
 export interface SitemapInfo {
@@ -13,20 +14,22 @@ export interface SitemapInfo {
   urlCount: number;
   type: 'xml' | 'txt';
   errorMessage?: string;
+  success: boolean;
 }
 
 export interface ParsedPageData {
-        url: string;
+  url: string;
   keyword: string;
   title?: string;
   h1?: string;
   canonicalUrl?: string;
-  status: 'pending' | 'success' | 'error';
+  isCanonical?: boolean;
+  status: 'success' | 'error' | 'pending';
+  errorMessage?: string;
   wordCount?: number;
   internalLinks?: number;
   externalLinks?: number;
   competition?: number;
-  errorMessage?: string;
 }
 export interface SitemapParserResponse {
   success: boolean;
@@ -36,5 +39,5 @@ export interface SitemapParserResponse {
 }
 
 export interface KeywordExtractionRow extends ParsedPageData {
-    id: number;
+  id: number;
 }

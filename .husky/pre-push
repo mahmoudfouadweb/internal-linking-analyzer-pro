@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run lint and tests before pushing
+npx eslint --ext .ts,.tsx --fix

@@ -67,7 +67,7 @@ export class SitemapParserController {
     private readonly sitemapParserApplicationService: SitemapParserApplicationService,
     // نحافظ على الخدمة القديمة للتوافق
     private readonly sitemapParserService: SitemapParserService
-  ) {}
+  ) { }
 
   @Post('parse')
   async parseSitemap(@Body() parseSitemapDto: ParseSitemapDto): Promise<SitemapParserResponse> {
@@ -75,11 +75,13 @@ export class SitemapParserController {
       const { baseUrl, settings } = parseSitemapDto;
       // توفير إعدادات افتراضية إذا لم يتم إرسالها من الواجهة الأمامية
       const effectiveSettings: ExtractionSettings = {
-        extractTitle: settings?.extractTitle ?? false,
+        extractTitleH1: settings?.extractTitle ?? false,
         extractH1: settings?.extractH1 ?? false,
         parseMultimediaSitemaps: settings?.parseMultimediaSitemaps ?? false,
-        checkCanonicalUrl: settings?.checkCanonicalUrl ?? false,
+        checkCanonical: settings?.checkCanonicalUrl ?? false,
         estimateCompetition: settings?.estimateCompetition ?? false,
+        countWords: false,
+        countInternalAndExternalLinks: false,
       };
 
       this.logger.log(`Received request to parse sitemap for: ${baseUrl}`);

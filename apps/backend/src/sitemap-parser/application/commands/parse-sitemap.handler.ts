@@ -44,7 +44,7 @@ export class ParseSitemapHandler {
     private readonly domainService: SitemapParserDomainService,
     @Inject('ISitemapParserRepository') private readonly repository: ISitemapParserRepository,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   /**
    * معالجة أمر تحليل Sitemap
@@ -99,6 +99,11 @@ export class ParseSitemapHandler {
           settings,
         );
 
+        // Ensure sitemapsFound is an empty array if no child sitemaps were found
+        if (!sitemapInfo.sitemapsFound) {
+          sitemapInfo.sitemapsFound = [];
+        }
+
         discoveredSitemapsInfo.push(sitemapInfo);
         allExtractedUrls.push(...extractedPages);
 
@@ -118,6 +123,7 @@ export class ParseSitemapHandler {
           urlCount: 0,
           type: this.domainService.getSitemapType(currentSitemapUrl),
           errorMessage,
+          success: false,
         });
       }
     }
@@ -227,6 +233,7 @@ export class ParseSitemapHandler {
       status: 'success',
       urlCount: 0,
       type: sitemapType,
+      success: true,
     };
 
     let childSitemaps: string[] = [];
@@ -258,10 +265,12 @@ export class ParseSitemapHandler {
           .filter(Boolean);
 
         sitemapInfo.urlCount = childSitemaps.length;
+        // Map child sitemaps to SitemapInfo objects, ensuring correct type structure
         sitemapInfo.sitemapsFound = childSitemaps.map((childUrl: string) => ({
           url: childUrl,
           status: 'pending',
         }));
+
 
         this.logger.log(
           `Discovered ${childSitemaps.length} child sitemaps in index: ${sitemapUrl}`,
@@ -317,14 +326,26 @@ export class ParseSitemapHandler {
     const pageData: ParsedPageData = {
       url,
       keyword: this.domainService.extractKeywordFromURL(url),
-      status: 'pending',
+      title: '',
+      h1: '',
+      canonicalUrl: '',
+      isCanonical: false,
+      status: 'pending', // Status as string
+      errorMessage: undefined, // Optional property
+      wordCount: undefined, // Optional property
+      internalLinks: undefined, // Optional property
+      externalLinks: undefined, // Optional property
+      competition: undefined, // Optional property
     };
 
-    // إذا لم نحتاج لتحليل المحتوى، نكتفي باستخراج الكلمة المفتاحية من URL
+    // If no content extraction settings are enabled, return basic page data
+    // If no content extraction settings are enabled, return basic page data
     if (
       !settings.countWords &&
       !settings.countInternalAndExternalLinks &&
-      !settings.estimateCompetition
+      !settings.estimateCompetition &&
+      !settings.extractTitleH1 && // Use extractTitleH1
+      !settings.checkCanonical // Use checkCanonical
     ) {
       pageData.status = 'success';
       return pageData;
@@ -336,16 +357,25 @@ export class ParseSitemapHandler {
       if (typeof htmlContent === 'string') {
         const $ = cheerio.load(htmlContent);
 
-        if (settings.checkCanonicalUrl) {
+        // Extract Title and H1
+        if (settings.extractTitleH1) {
+          pageData.title = $('title').text().trim();
+          pageData.h1 = $('h1').first().text().trim();
+        }
+
+
+        // Check Canonical URL
+        if (settings.checkCanonical) { // Use checkCanonical
           const canonicalUrl = $('link[rel="canonical"]').attr('href');
           if (canonicalUrl) {
             pageData.canonicalUrl = canonicalUrl;
             pageData.isCanonical = url === canonicalUrl;
           } else {
-            pageData.isCanonical = true; // إذا لم يوجد canonical، فالصفحة الحالية هي canonical
+            pageData.isCanonical = true; // If no canonical tag, the current page is considered canonical
           }
         }
 
+        // Count Words
         if (settings.countWords) {
           const textContent = $('body').text();
           pageData.wordCount = textContent
@@ -354,6 +384,7 @@ export class ParseSitemapHandler {
             .filter((word) => word.length > 0).length;
         }
 
+        // Count Internal and External Links
         if (settings.countInternalAndExternalLinks) {
           const links = $('a[href]');
           let internal = 0;
@@ -374,7 +405,7 @@ export class ParseSitemapHandler {
                     external++;
                   }
                 } catch {
-                  // تجاهل روابط URL غير صالحة
+                  // Ignore invalid URLs
                 }
               }
             });
@@ -388,6 +419,7 @@ export class ParseSitemapHandler {
           }
         }
 
+        // Estimate Competition
         if (settings.estimateCompetition) {
           const textLength = $('body').text().length;
           const headerCount = $('h1, h2, h3, h4, h5, h6').length;

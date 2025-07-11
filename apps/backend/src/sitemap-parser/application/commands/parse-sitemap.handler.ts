@@ -47,6 +47,23 @@ export class ParseSitemapHandler {
   ) { }
 
   /**
+   * التحقق مما إذا كان العنوان URL هو sitemap مباشر
+   * يعتمد على امتداد الملف أو مساره
+   */
+  private isSitemapUrl(url: string): boolean {
+    // قائمة الامتدادات والمسارات المعروفة للـ sitemap
+    const sitemapPatterns = [
+      /\.xml$/i,                // .xml extension
+      /\.xml\.gz$/i,           // .xml.gz extension
+      /\/sitemap[^/]*\.xml/i,   // contains sitemap.xml or variations
+      /\/sitemap[^/]*\.txt/i,   // contains sitemap.txt or variations
+      /\/sitemap\.php$/i,       // sitemap.php endpoint
+    ];
+
+    return sitemapPatterns.some(pattern => pattern.test(url));
+  }
+
+  /**
    * معالجة أمر تحليل Sitemap
    * @param command - أمر التحليل
    */
@@ -56,7 +73,7 @@ export class ParseSitemapHandler {
 
     if (!this.domainService.isValidUrl(baseUrl)) {
       throw new BadRequestException(
-        'Invalid or malformed base URL provided. Please provide a valid URL including the protocol (http:// or https://).',
+        'Invalid or malformed base URL provided. Please provide a valid URL including the protocol (http:// or https://)',
       );
     }
 
@@ -64,19 +81,29 @@ export class ParseSitemapHandler {
     const sitemapsToProcess: Set<string> = new Set();
     const discoveredSitemapsInfo: SitemapInfo[] = [];
 
-    this.logger.log(`Attempting to discover sitemaps via robots.txt for ${cleanedBaseUrl}`);
+    // التحقق مما إذا كان URL المقدم هو sitemap مباشر
+    const isDirectSitemapUrl = this.isSitemapUrl(cleanedBaseUrl);
 
-    // محاولة اكتشاف Sitemap من ملف robots.txt
-    await this.discoverSitemapsFromRobotsTxt(cleanedBaseUrl, sitemapsToProcess);
+    if (isDirectSitemapUrl) {
+      // إذا كان URL هو عنوان sitemap مباشر، أضفه إلى قائمة المعالجة مباشرة
+      this.logger.log(`Provided URL appears to be a direct sitemap URL: ${cleanedBaseUrl}`);
+      sitemapsToProcess.add(cleanedBaseUrl);
+    } else {
+      // إذا كان URL هو عنوان موقع أساسي، ابحث عن الـ sitemaps
+      this.logger.log(`Attempting to discover sitemaps via robots.txt for ${cleanedBaseUrl}`);
 
-    // إذا لم نجد أي Sitemap، نحاول المسارات الشائعة
-    if (sitemapsToProcess.size === 0) {
-      this.logger.log(`Falling back to common sitemap paths for ${cleanedBaseUrl}`);
-      await this.tryCommonSitemapPaths(cleanedBaseUrl, sitemapsToProcess);
-    }
+      // محاولة اكتشاف Sitemap من ملف robots.txt
+      await this.discoverSitemapsFromRobotsTxt(cleanedBaseUrl, sitemapsToProcess);
 
-    if (sitemapsToProcess.size === 0) {
-      throw new BadRequestException('Could not find any valid sitemap for the provided website.');
+      // إذا لم نجد أي Sitemap، نحاول المسارات الشائعة
+      if (sitemapsToProcess.size === 0) {
+        this.logger.log(`Falling back to common sitemap paths for ${cleanedBaseUrl}`);
+        await this.tryCommonSitemapPaths(cleanedBaseUrl, sitemapsToProcess);
+      }
+
+      if (sitemapsToProcess.size === 0) {
+        throw new BadRequestException('Could not find any valid sitemap for the provided website.');
+      }
     }
 
     const allExtractedUrls: ParsedPageData[] = [];

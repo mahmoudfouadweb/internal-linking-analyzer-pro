@@ -199,7 +199,7 @@ export function useKeywordExtraction() {
         }, 500);
 
         // Use environment variable for backend URL
-        const backendUrl = process.env.NEXT_PUBLIC_NESTJS_BACKEND_URL || 'http://localhost:3001';
+        const backendUrl = process.env.NEXT_PUBLIC_NESTJS_BACKEND_URL || 'http://localhost:3002';
         const apiUrl = `${backendUrl}/sitemap-parser/parse`;
 
         // Send extraction settings to the backend
@@ -234,14 +234,17 @@ export function useKeywordExtraction() {
           setSitemaps(data.sitemaps);
         } else {
           // Fallback: If sitemaps array is empty but we got URLs, infer a single sitemap info
-          if (data.urls && data.urls.length > 0) {
-            setSitemaps([{ url: baseUrl, urlCount: data.urls.length, status: 'success' }]);
+          const extractedUrls = data.extractedUrls || data.urls;
+          if (extractedUrls && extractedUrls.length > 0) {
+            setSitemaps([{ url: baseUrl, urlCount: extractedUrls.length, status: 'success' }]);
           }
         }
 
         // Process URLs returned by the backend (which now include enriched data)
-        if (data.urls && Array.isArray(data.urls) && data.urls.length > 0) {
-          handleExtract(data.urls, true); // Pass enriched data, use initialCall=true
+        // Check both 'urls' and 'extractedUrls' for backward compatibility
+        const extractedUrls = data.extractedUrls || data.urls;
+        if (extractedUrls && Array.isArray(extractedUrls) && extractedUrls.length > 0) {
+          handleExtract(extractedUrls, true); // Pass enriched data, use initialCall=true
         } else {
           // Handle cases where no URLs are found
           if (data.sitemaps && data.sitemaps.length > 0) {

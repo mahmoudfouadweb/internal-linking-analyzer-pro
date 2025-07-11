@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useCallback, useMemo, ChangeEvent } from 'react'; // Import ChangeEvent
 
 // Import the custom hook and shared interfaces
-import { useKeywordExtraction } from '@/hooks/useKeywordExtraction';
+import { useKeywordExtraction } from '@/features/keyword-extractor/hooks/useKeywordExtraction';
 import {
   ExtractionSettings,
   SitemapInfo,

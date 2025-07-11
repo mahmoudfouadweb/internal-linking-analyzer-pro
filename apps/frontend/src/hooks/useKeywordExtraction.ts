@@ -35,7 +35,7 @@ const defaultSettings: ExtractionSettings = {
  */
 export const useKeywordExtraction = () => {
   const [rows, setRows] = useState<KeywordExtractionRow[]>([]);
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [urlsText, setUrlsText] = useState('');
   const [keywordsText, setKeywordsText] = useState('');
   const [sitemaps, setSitemaps] = useState<SitemapInfo[]>([]);
@@ -57,11 +57,30 @@ export const useKeywordExtraction = () => {
       setRows([]);
       setSelectedRows(new Set());
     }
-    // This is a simplified version. In a real app, you'd call the backend here.
-    const newRows: KeywordExtractionRow[] = links.map((link, index) => ({
-      id: `${Date.now()}-${index}`,
+    // Extract keyword from URL if not provided
+    const extractKeywordFromURL = (url: string): string => {
+      try {
+        const pathname = new URL(url).pathname;
+        const decoded = decodeURIComponent(pathname);
+        const cleanPath = decoded
+          .replace(/\.(html|htm|php|asp|aspx|pdf|jpg|png|gif)$/i, '')
+          .replace(/\/+$/, '');
+        const segments = cleanPath.split('/').filter(Boolean);
+        const filteredSegments = segments.filter(
+          segment => !['blog', 'category', 'product', 'tag', 'archive', 'page', 'en', 'ar'].includes(segment.toLowerCase())
+        );
+        const keyword = filteredSegments.pop()?.replace(/-/g, ' ').trim();
+        return keyword || 'لا توجد كلمة مفتاحية';
+      } catch (error) {
+        return 'رابط غير صالح';
+      }
+    };
+
+    let currentId = reset ? 0 : rows.length > 0 ? Math.max(...rows.map(r => r.id)) + 1 : 0;
+    const newRows: KeywordExtractionRow[] = links.map((link) => ({
+      id: currentId++,
       url: link.url,
-      keyword: link.keyword || 'N/A',
+      keyword: link.keyword || extractKeywordFromURL(link.url),
       // other properties would be populated by the backend
     }));
     setRows(prev => [...prev, ...newRows]);
@@ -87,7 +106,15 @@ export const useKeywordExtraction = () => {
       const response = await fetch('/api/sitemap-parser', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: sitemapUrl, settings }),
+        body: JSON.stringify({ 
+          url: sitemapUrl, 
+          settings: {
+            extractTitleH1: settings.extractTitleH1,
+            parseMultimediaSitemaps: settings.parseMultimediaSitemaps,
+            checkCanonical: settings.checkCanonical,
+            estimateCompetition: settings.estimateCompetition,
+          }
+        }),
       });
 
       if (!response.ok) {
@@ -96,18 +123,41 @@ export const useKeywordExtraction = () => {
       }
 
       const data: SitemapParserResponse = await response.json();
-      setSitemaps(data.sitemaps || []);
-      const newRows: KeywordExtractionRow[] = (data.urls || []).map((page, index) => ({
-        id: `${Date.now()}-${index}`,
-        url: page.url,
-        keyword: page.keyword || 'N/A',
-        title: page.title,
-        h1: page.h1,
-        isCanonical: page.isCanonical,
-        canonicalUrl: page.canonicalUrl,
-        competitionEstimate: page.competitionEstimate,
-      }));
-      setRows(newRows);
+      
+      // Store sitemap information found by backend
+      if (data.sitemaps && Array.isArray(data.sitemaps)) {
+        setSitemaps(data.sitemaps);
+      } else {
+        // Fallback: If sitemaps array is empty but we got URLs, infer a single sitemap info
+        const extractedUrls = data.extractedUrls || data.urls;
+        if (extractedUrls && extractedUrls.length > 0) {
+          setSitemaps([{ url: sitemapUrl, urlCount: extractedUrls.length, status: 'success' }]);
+        }
+      }
+      
+      // Process URLs returned by the backend
+      const extractedUrls = data.extractedUrls || data.urls;
+      if (extractedUrls && Array.isArray(extractedUrls) && extractedUrls.length > 0) {
+        let currentId = 0;
+        const newRows: KeywordExtractionRow[] = extractedUrls.map((page) => ({
+          id: currentId++,
+          url: page.url,
+          keyword: page.keyword || 'N/A',
+          title: page.title,
+          h1: page.h1,
+          isCanonical: page.isCanonical,
+          canonicalUrl: page.canonicalUrl,
+          competitionEstimate: page.competitionEstimate,
+        }));
+        setRows(newRows);
+      } else {
+        // Handle cases where no URLs are found
+        if (data.sitemaps && data.sitemaps.length > 0) {
+          setError('تم العثور على ملفات sitemap ولكن لم يتم استخراج أي روابط منها.');
+        } else {
+          setError('لم يتم العثور على أي ملفات sitemap أو روابط صالحة للموقع المحدد.');
+        }
+      }
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       setError(errorMessage);
@@ -120,7 +170,7 @@ export const useKeywordExtraction = () => {
    * Toggles the selection state of a single row in the results table.
    * @param id - The unique identifier of the row to select/deselect.
    */
-  const handleSelect = useCallback((id: string) => {
+  const handleSelect = useCallback((id: number) => {
     setSelectedRows(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -136,23 +186,21 @@ export const useKeywordExtraction = () => {
    * Toggles the selection state of all rows in the results table.
    * If all rows are already selected, it deselects all. Otherwise, it selects all.
    */
-  const handleSelectAll = useCallback(() => {
-    if (selectedRows.size === rows.length) {
-      setSelectedRows(new Set());
-    } else {
+  const handleSelectAll = useCallback((isChecked: boolean) => {
+    if (isChecked) {
       setSelectedRows(new Set(rows.map(row => row.id)));
+    } else {
+      setSelectedRows(new Set());
     }
-  }, [rows]);
+  }, [rows, selectedRows]);
 
     /**
-   * Copies the URLs or keywords of the selected rows to the clipboard.
-   * @param type - Specifies whether to copy 'url' or 'keyword'.
+   * Copies the URLs and keywords of the selected rows to the clipboard.
    */
-  const handleCopySelected = useCallback((type: 'url' | 'keyword') => {
-    const textToCopy = rows
-      .filter(row => selectedRows.has(row.id))
-      .map(row => row[type])
-      .filter(Boolean) // Ensure no undefined/null values are joined
+  const handleCopySelected = useCallback(() => {
+    const selectedData = rows.filter(row => selectedRows.has(row.id));
+    const textToCopy = selectedData
+      .map(r => `${r.url}\t${r.keyword}`)
       .join('\n');
     if (textToCopy) {
       copyToClipboard(textToCopy);

@@ -1,9 +1,16 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 echo "Running ESLint check and fix before commit..."
-npx eslint --ext .ts,.tsx,.js,.jsx . --fix || (
-  echo "❌ ESLint found errors that could not be automatically fixed."
-  echo "Please fix the errors and try committing again."
-  exit 1
-)
+
+# Check if eslint.config.js exists, if not use the legacy .eslintrc configuration
+if [ -f "eslint.config.js" ]; then
+  npx eslint --ext .ts,.tsx,.js,.jsx . --fix || (
+    echo "❌ ESLint found errors that could not be automatically fixed."
+    echo "Please fix the errors and try committing again."
+    exit 1
+  )
+else
+  npx eslint --ext .ts,.tsx,.js,.jsx . --fix --legacy || (
+    echo "❌ ESLint found errors that could not be automatically fixed."
+    echo "Please fix the errors and try committing again."
+    exit 1
+  )
+fi

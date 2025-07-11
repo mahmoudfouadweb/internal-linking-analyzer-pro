@@ -1,0 +1,3 @@
+import { transformToPageData, allExtractedUrls } from './path-to/sitemap-parser.service';
+
+const extractedUrls = allExtractedUrls.map(transformToPageData);

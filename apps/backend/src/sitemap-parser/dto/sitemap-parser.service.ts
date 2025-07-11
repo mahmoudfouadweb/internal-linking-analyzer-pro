@@ -20,7 +20,7 @@ export class SitemapParserService {
     '/sitemap.txt',
   ];
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(private readonly httpService: HttpService) { }
 
   async parseWebsiteSitemaps(
     baseUrl: string,
@@ -72,9 +72,10 @@ export class SitemapParserService {
           discoveredSitemapsInfo.push(sitemapInfo);
           allExtractedUrls.push(...extractedUrls);
         } catch (error) {
-          this.logger.error(`Failed to process sitemap ${sitemapUrl}:`, error);
+          this.logger.error(`Failed to process sitemap ${sitemapUrl}: ${error instanceof Error ? error.message : error}`);
           discoveredSitemapsInfo.push({
             url: sitemapUrl,
+            success: false,
             status: 'error',
             urlCount: 0,
             type: 'xml',
@@ -211,6 +212,8 @@ export class SitemapParserService {
       status: 'success',
       urlCount: urls.length,
       type: sitemapUrl.endsWith('.txt') ? 'txt' : 'xml',
+      errorMessage: "No Error",
+      success: true,
     };
 
     return { sitemapInfo, extractedUrls };
@@ -241,7 +244,7 @@ export class SitemapParserService {
 
       const $ = cheerio.load(htmlContent);
 
-      if (settings.checkCanonicalUrl) {
+      if (settings.checkCanonical) {
         pageData.canonicalUrl = $('link[rel="canonical"]').attr('href') || '';
       }
 

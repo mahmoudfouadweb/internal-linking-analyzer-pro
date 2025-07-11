@@ -5,6 +5,11 @@ import { HttpService } from '@nestjs/axios';
 import { SitemapParserService } from './sitemap-parser.service';
 import { BadRequestException, Logger } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
+import {
+  ExtractionSettings,
+  ParsedPageData,
+  SitemapInfo,
+} from '@internal-linking-analyzer-pro/types';
 
 interface SitemapParserResponse {
   urls: Array<{
@@ -24,6 +29,11 @@ describe('SitemapParserService', () => {
   beforeEach(async () => {
     const mockHttpService = {
       get: jest.fn(),
+      head: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: jest.fn(),
+      patch: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -35,8 +45,8 @@ describe('SitemapParserService', () => {
         },
       ],
     })
-    .setLogger(new Logger())
-    .compile();
+      .setLogger(new Logger())
+      .compile();
 
     service = module.get<SitemapParserService>(SitemapParserService);
     httpService = module.get<HttpService>(HttpService);
@@ -59,7 +69,7 @@ describe('SitemapParserService', () => {
           parseMultimediaSitemaps: false,
           checkCanonicalUrl: false,
           estimateCompetition: false,
-        })
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -73,7 +83,8 @@ describe('SitemapParserService', () => {
           </url>
         </urlset>`;
 
-      jest.spyOn(httpService, 'get')
+      jest
+        .spyOn(httpService, 'get')
         .mockReturnValueOnce(of({ data: robotsTxtContent, status: 200 } as any))
         .mockReturnValueOnce(of({ data: sitemapXml, status: 200 } as any));
 
@@ -100,13 +111,13 @@ describe('SitemapParserService', () => {
         </urlset>`;
 
       const httpSpy = jest.spyOn(httpService, 'get');
-      
+
       // Mock robots.txt failure
       httpSpy.mockReturnValueOnce(throwError(() => new Error('robots.txt not found')));
-      
+
       // Mock successful sitemap.xml fetch (first common path)
       httpSpy.mockReturnValueOnce(of({ data: sitemapXml, status: 200 } as any));
-      
+
       // Mock the actual sitemap content fetch
       httpSpy.mockReturnValueOnce(of({ data: sitemapXml, status: 200 } as any));
 
@@ -125,8 +136,7 @@ describe('SitemapParserService', () => {
     it('should throw BadRequestException when no sitemaps are found', async () => {
       const baseUrl = 'https://example.com';
 
-      jest.spyOn(httpService, 'get')
-        .mockReturnValue(throwError(() => new Error('Not found')));
+      jest.spyOn(httpService, 'get').mockReturnValue(throwError(() => new Error('Not found')));
 
       await expect(
         service.parseWebsiteSitemaps(baseUrl, {
@@ -135,7 +145,7 @@ describe('SitemapParserService', () => {
           parseMultimediaSitemaps: false,
           checkCanonicalUrl: false,
           estimateCompetition: false,
-        })
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });

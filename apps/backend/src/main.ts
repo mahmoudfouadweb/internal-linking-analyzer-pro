@@ -21,8 +21,8 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
-  // Set global prefix for API routes
-  app.setGlobalPrefix(process.env.API_PREFIX || 'api');
+  // Set global prefix for API routes - تم تعطيله مؤقتاً لحل مشكلة 404
+  // app.setGlobalPrefix(process.env.API_PREFIX || 'api');
 
   // Enable global validation
   app.useGlobalPipes(
@@ -35,7 +35,7 @@ async function bootstrap() {
 
   await app.listen(port);
   console.log(`🚀 Backend server is running on: http://localhost:${port}`);
-  console.log(`📡 API available at: http://localhost:${port}/api`);
+  // console.log(`📡 API available at: http://localhost:${port}/api`);
   console.log(`🌐 Frontend URL: ${frontendUrl}`);
 }
 

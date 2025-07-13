@@ -15,6 +15,7 @@ export type SitemapType = 'xml' | 'txt';
  * @interface ExtractionSettings
  * @description Defines the settings for content extraction during sitemap parsing.
  * @property {boolean} [extractTitleH1] - Whether to extract the page title and H1 heading.
+ * @property {boolean} [extractTitle] - Whether to extract the page title.
  * @property {boolean} [checkCanonical] - Whether to check for canonical URLs.
  * @property {boolean} [countWords] - Whether to count the words on the page.
  * @property {boolean} [estimateCompetition] - Whether to estimate the competition for the page.
@@ -22,6 +23,7 @@ export type SitemapType = 'xml' | 'txt';
  */
 export interface ExtractionSettings {
   extractTitleH1?: boolean;
+  extractTitle?: boolean; // Added extractTitle
   checkCanonical?: boolean;
   countWords?: boolean;
   estimateCompetition?: boolean;
@@ -79,8 +81,8 @@ export interface SitemapInfo {
   type: SitemapType;
   success: boolean;
   errorMessage?: string;
-  sitemapsFound?: { 
-    url: string; 
+  sitemapsFound?: {
+    url: string;
     status: 'pending' | 'success' | 'error';
     urlCount?: number;
     type?: SitemapType;

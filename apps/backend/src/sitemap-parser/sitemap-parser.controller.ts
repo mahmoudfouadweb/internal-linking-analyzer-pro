@@ -14,48 +14,13 @@ import {
   ValidationPipe,
   Logger,
 } from '@nestjs/common';
-import { IsUrl, IsBoolean, IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
 
 // استيراد خدمات التطبيق
 import { SitemapParserApplicationService } from './application/sitemap-parser.application.service';
-// نحافظ على الاستيراد القديم للتوافق
-import { SitemapParserService } from './sitemap-parser.service';
 
 // استيراد الأنواع المشتركة
 import { ExtractionSettings, SitemapParserResponse } from '@internal-linking-analyzer-pro/types';
-
-// تعريف كائنات نقل البيانات (DTOs)
-class ParseSitemapSettingsDto implements ExtractionSettings {
-  @IsBoolean()
-  @IsOptional()
-  extractTitle?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  extractH1?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  parseMultimediaSitemaps?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  checkCanonicalUrl?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  estimateCompetition?: boolean;
-}
-
-class ParseSitemapDto {
-  @IsUrl({}, { message: 'baseUrl يجب أن يكون رابط URL صالحًا.' })
-  baseUrl!: string;
-
-  @IsOptional()
-  @Type(() => ParseSitemapSettingsDto)
-  settings?: ParseSitemapSettingsDto;
-}
+import { ParseSitemapDto } from './dto/parse-sitemap.dto';
 
 @Controller('sitemap-parser')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
@@ -64,27 +29,28 @@ export class SitemapParserController {
 
   constructor(
     // حقن خدمة التطبيق الجديدة
-    private readonly sitemapParserApplicationService: SitemapParserApplicationService,
-    // نحافظ على الخدمة القديمة للتوافق
-    private readonly sitemapParserService: SitemapParserService
+    private readonly sitemapParserApplicationService: SitemapParserApplicationService
   ) { }
 
   @Post('parse')
-  async parseSitemap(@Body() parseSitemapDto: ParseSitemapDto): Promise<SitemapParserResponse> {
+  async parseSitemap(@Body() parseSitemapDto: ParseSitemapDto): Promise<SitemapParserResponse & { processingTimeMs: number }> {
+    const startTime = Date.now();
+
     try {
       const { baseUrl, settings } = parseSitemapDto;
       // توفير إعدادات افتراضية إذا لم يتم إرسالها من الواجهة الأمامية
       const effectiveSettings: ExtractionSettings = {
-        extractTitleH1: settings?.extractTitle ?? false,
+        extractTitleH1: settings?.extractTitleH1 ?? true,
+        extractTitle: settings?.extractTitle ?? false,
         extractH1: settings?.extractH1 ?? false,
         parseMultimediaSitemaps: settings?.parseMultimediaSitemaps ?? false,
-        checkCanonical: settings?.checkCanonicalUrl ?? false,
+        checkCanonical: settings?.checkCanonical ?? false,
         estimateCompetition: settings?.estimateCompetition ?? false,
-        countWords: false,
-        countInternalAndExternalLinks: false,
+        countWords: settings?.countWords ?? false,
+        countInternalAndExternalLinks: settings?.countInternalAndExternalLinks ?? false,
       };
 
-      this.logger.log(`Received request to parse sitemap for: ${baseUrl}`);
+      this.logger.log(`Received request to parse sitemap for: ${baseUrl} with settings:`, effectiveSettings);
 
       // استخدام خدمة التطبيق الجديدة
       const result = await this.sitemapParserApplicationService.parseWebsiteSitemaps(
@@ -92,7 +58,13 @@ export class SitemapParserController {
         effectiveSettings,
       );
 
-      return result;
+      const endTime = Date.now();
+      const processingTimeMs = endTime - startTime;
+
+      return {
+        ...result,
+        processingTimeMs,
+      };
     } catch (error: unknown) {
       this.logger.error(`Error parsing sitemap: ${error instanceof Error ? error.message : String(error)}`);
 

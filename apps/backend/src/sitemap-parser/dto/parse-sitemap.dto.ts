@@ -1,11 +1,28 @@
-import { IsString, IsUrl, IsOptional, IsObject, IsBoolean } from 'class-validator';
+import { IsString, IsUrl, IsOptional, IsBoolean, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ExtractionSettings } from '@internal-linking-analyzer-pro/types';
 
 // نعرف DTO للإعدادات بشكل منفصل لتحسين إعادة الاستخدام
-class ParseSitemapSettingsDto {
+class ParseSitemapSettingsDto implements ExtractionSettings {
   @IsBoolean()
   @IsOptional()
   extractTitleH1?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  extractTitle?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  extractH1?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  countWords?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  countInternalAndExternalLinks?: boolean;
 
   @IsBoolean()
   @IsOptional()
@@ -13,7 +30,7 @@ class ParseSitemapSettingsDto {
 
   @IsBoolean()
   @IsOptional()
-  checkCanonicalUrl?: boolean;
+  checkCanonical?: boolean;
 
   @IsBoolean()
   @IsOptional()
@@ -27,6 +44,7 @@ export class ParseSitemapDto {
   baseUrl!: string;
 
   @IsOptional()
+  @ValidateNested()
   @Type(() => ParseSitemapSettingsDto)
   settings?: ParseSitemapSettingsDto;
 }

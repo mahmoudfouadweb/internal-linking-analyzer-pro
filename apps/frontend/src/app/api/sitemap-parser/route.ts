@@ -19,12 +19,14 @@ import { NextRequest, NextResponse } from 'next/server';
  * @description Request body structure for sitemap parsing
  */
 interface SitemapParseRequest {
-  url: string;
+  baseUrl: string;
   settings?: {
     extractTitleH1?: boolean;
     parseMultimediaSitemaps?: boolean;
     checkCanonical?: boolean;
     estimateCompetition?: boolean;
+    countWords?: boolean;
+    countInternalAndExternalLinks?: boolean;
   };
 }
 
@@ -51,7 +53,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Parse and validate request body
     const body: SitemapParseRequest = await request.json();
     
-    if (!body.url || typeof body.url !== 'string') {
+    // Support both 'url' and 'baseUrl' for backward compatibility
+    const url = body.baseUrl || (body as any).url;
+    
+    if (!url || typeof url !== 'string') {
       return NextResponse.json(
         { error: 'URL is required and must be a string' },
         { status: 400 }
@@ -60,7 +65,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Validate URL format
     try {
-      new URL(body.url);
+      new URL(url);
     } catch {
       return NextResponse.json(
         { error: 'Invalid URL format' },
@@ -72,21 +77,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const settings = {
       extractTitleH1: true,
       parseMultimediaSitemaps: false,
-      checkCanonicalUrl: false, // تغيير من checkCanonical إلى checkCanonicalUrl
+      checkCanonical: false,
       estimateCompetition: false,
+      countWords: false,
+      countInternalAndExternalLinks: false,
       ...body.settings,
     };
 
     // Forward request to backend service
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002';
-    const backendResponse = await fetch(`${backendUrl}/api/sitemap-parser/parse`, {
+    const backendResponse = await fetch(`${backendUrl}/sitemap-parser/parse`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'InternalLinkingAnalyzerPro-Frontend/1.0',
       },
       body: JSON.stringify({
-        baseUrl: body.url, // تغيير من url إلى baseUrl لتتوافق مع DTO الخلفية
+        baseUrl: url,
         settings,
       }),
     });
@@ -108,7 +115,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const data = await backendResponse.json();
     
     // Log successful processing
-    console.log(`Successfully processed sitemap: ${body.url}, found ${data.extractedUrls?.length || 0} URLs`);
+    console.log(`Successfully processed sitemap: ${url}, found ${data.extractedUrls?.length || 0} URLs`);
     
     return NextResponse.json(data);
 

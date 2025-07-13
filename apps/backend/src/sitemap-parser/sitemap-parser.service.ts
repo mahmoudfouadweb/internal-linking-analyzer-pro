@@ -22,6 +22,7 @@ import { HttpService } from '@nestjs/axios';
 import { parseStringPromise } from 'xml2js';
 import { lastValueFrom } from 'rxjs';
 import * as zlib from 'zlib';
+import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { SitemapParserDomainService } from './domain/services/sitemap-parser.domain.service';
 
@@ -61,16 +62,16 @@ export class SitemapParserService {
   constructor(
     private readonly httpService: HttpService,
     private readonly domainService: SitemapParserDomainService,
-  ) {}
+  ) { }
 
-    /**
-   * The main public method to discover and parse sitemaps for a website.
-   * It orchestrates the entire process from robots.txt discovery, fallback to common paths,
-   * processing sitemap indexes and individual sitemaps, and extracting page data.
-   * @param baseUrl - The base URL of the website to parse.
-   * @param settings - Configuration for the extraction process.
-   * @returns A promise that resolves to a `SitemapParserResponse` object.
-   */
+  /**
+ * The main public method to discover and parse sitemaps for a website.
+ * It orchestrates the entire process from robots.txt discovery, fallback to common paths,
+ * processing sitemap indexes and individual sitemaps, and extracting page data.
+ * @param baseUrl - The base URL of the website to parse.
+ * @param settings - Configuration for the extraction process.
+ * @returns A promise that resolves to a `SitemapParserResponse` object.
+ */
   async parseWebsiteSitemaps(
     baseUrl: string,
     settings: ExtractionSettings,
@@ -217,35 +218,41 @@ export class SitemapParserService {
     };
   }
 
-  private async fetchUrlContent(url: string, responseType: 'text' | 'arraybuffer'): Promise<string | ArrayBuffer | null> {
+  private async fetchUrlContent(url: string, responseType: 'text' | 'arraybuffer'): Promise<string | null> {
+    const gunzip = promisify(zlib.gunzip);
     try {
       const response = await lastValueFrom(
-        this.httpService.get(url, { responseType: responseType, timeout: 10000 }),
+        this.httpService.get(url, {
+          responseType: responseType,
+        }),
       );
-      if (responseType === 'arraybuffer' && response.data instanceof ArrayBuffer) {
-        // Decompress gzipped content
-        const buffer = Buffer.from(response.data);
-        if (url.endsWith('.gz')) {
-          const gunzip = promisify(zlib.gunzip);
-          const decompressed = await gunzip(buffer);
-          return decompressed.toString('utf-8');
-        } else {
-          return buffer.toString('utf-8');
-        }
-      } else if (typeof response.data === 'string') {
-        return response.data;
+
+      if (response.status >= 400) {
+        throw new Error(`Request failed with status ${response.status}`);
       }
-      return null;
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to fetch content from ${url}: ${errorMessage}`);
-      return null;
+
+      const data = response.data;
+
+      if (url.endsWith('.gz')) {
+        const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        const decompressedData = await gunzip(buffer);
+        return decompressedData.toString('utf-8');
+      }
+
+      return String(data);
+    } catch (error) {
+      let errorMessage: string;
+      if (axios.isAxiosError(error)) {
+        errorMessage = error.response?.data?.message || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      } else {
+        errorMessage = String(error);
+      }
+      this.logger.error(`Failed to fetch content from: ${url}. Reason: ${errorMessage}`);
+      throw new Error(`Failed to fetch content from ${url}: ${errorMessage}`);
     }
   }
-
-
-
-
 
   private async extractPageData(url: string, settings: ExtractionSettings): Promise<ParsedPageData> {
     const pageData: ParsedPageData = {

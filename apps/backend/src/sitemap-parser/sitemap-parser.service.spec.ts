@@ -9,19 +9,10 @@ import {
   ExtractionSettings,
   ParsedPageData,
   SitemapInfo,
+  SitemapParserResponse,
 } from '@internal-linking-analyzer-pro/types';
+import { SitemapParserDomainService } from './domain/services/sitemap-parser.domain.service';
 
-interface SitemapParserResponse {
-  urls: Array<{
-    url: string;
-    keyword: string;
-    title?: string;
-    h1?: string;
-    isCanonical?: boolean;
-    competition?: 'low' | 'medium' | 'high';
-  }>;
-  foundSitemaps?: string[];
-}
 describe('SitemapParserService', () => {
   let service: SitemapParserService;
   let httpService: HttpService;
@@ -39,6 +30,7 @@ describe('SitemapParserService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SitemapParserService,
+        SitemapParserDomainService,
         {
           provide: HttpService,
           useValue: mockHttpService,
@@ -67,7 +59,7 @@ describe('SitemapParserService', () => {
           extractTitle: false,
           extractH1: false,
           parseMultimediaSitemaps: false,
-          checkCanonicalUrl: false,
+          checkCanonical: false,
           estimateCompetition: false,
         }),
       ).rejects.toThrow(BadRequestException);
@@ -92,7 +84,7 @@ describe('SitemapParserService', () => {
         extractTitle: false,
         extractH1: false,
         parseMultimediaSitemaps: false,
-        checkCanonicalUrl: false,
+        checkCanonical: false,
         estimateCompetition: false,
       });
 
@@ -125,7 +117,7 @@ describe('SitemapParserService', () => {
         extractTitle: false,
         extractH1: false,
         parseMultimediaSitemaps: false,
-        checkCanonicalUrl: false,
+        checkCanonical: false,
         estimateCompetition: false,
       });
 
@@ -143,7 +135,7 @@ describe('SitemapParserService', () => {
           extractTitle: false,
           extractH1: false,
           parseMultimediaSitemaps: false,
-          checkCanonicalUrl: false,
+          checkCanonical: false,
           estimateCompetition: false,
         }),
       ).rejects.toThrow(BadRequestException);

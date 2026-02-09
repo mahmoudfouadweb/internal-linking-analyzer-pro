@@ -22,7 +22,7 @@
     "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.1",
+    "@changesets/cli": "^2.29.8",
     "@internal-linking-analyzer-pro/types": "workspace:*",
     "@rollup/rollup-win32-x64-msvc": "^4.9.0",
     "@typescript-eslint/eslint-plugin": "^8.53.1",

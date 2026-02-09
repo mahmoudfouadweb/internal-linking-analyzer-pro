@@ -33,7 +33,7 @@
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-prettier": "^4.2.1",
     "husky": "^9.0.11",
-    "lint-staged": "16.1.2",
+    "lint-staged": "16.2.7",
     "prettier": "^3.8.1",
     "rimraf": "^5.0.7",
     "rollup": "^4.52.0",

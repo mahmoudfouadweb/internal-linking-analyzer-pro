@@ -24,7 +24,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
     "@internal-linking-analyzer-pro/types": "workspace:*",
-    "@rollup/rollup-win32-x64-msvc": "^4.9.0",
+    "@rollup/rollup-win32-x64-msvc": "^4.63.5",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
     "concurrently": "^8.0.1",

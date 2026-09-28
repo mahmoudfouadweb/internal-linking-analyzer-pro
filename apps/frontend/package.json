@@ -50,7 +50,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "msw": "^2.12.7",
-    "postcss": "^8.5.6",
+    "postcss": "^8.5.28",
     "rimraf": "^5.0.7",
     "tailwindcss": "^3.4.17",
     "ts-jest": "^29.4.11",
